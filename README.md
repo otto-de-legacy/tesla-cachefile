@@ -4,6 +4,8 @@ An addon to [tesla-microservice](https://github.com/otto-de/tesla-microservice)
 to use a cachefile locally or on hdfs.
 In case of hdfs, the namenode can be manually configured or automatically determined by querying a zookeeper.
 
+[![Build Status](https://travis-ci.org/otto-de/tesla-cachefile.svg)](https://travis-ci.org/otto-de/tesla-cachefile)
+
 ## Usage
 
 Add this to your project's dependencies:
