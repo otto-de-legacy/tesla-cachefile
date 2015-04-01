@@ -12,11 +12,13 @@ Add this to your project's dependencies:
 
 the module, if used within a system, can be accessed using this protocol:
 
-`(defprotocol CfAccess
-  (read-cache-file [self])
+```
+(defprotocol CfAccess
+ (read-cache-file [self])
   (write-cache-file [self content])
   (cache-file-exists [self])
-  (cache-file-defined [self]))`
+  (cache-file-defined [self]))
+```
 
 ### Local cachefile
 Add `cache.file` to your properties pointing to e.g. `/tmp/local.cachefile`
