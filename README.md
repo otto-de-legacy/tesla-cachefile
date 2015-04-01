@@ -10,6 +10,14 @@ Add this to your project's dependencies:
 
 `[de.otto/tesla-cachefile "0.1.1"]`
 
+the module, if used within a system, can be accessed using this protocol:
+
+`(defprotocol CfAccess
+  (read-cache-file [self])
+  (write-cache-file [self content])
+  (cache-file-exists [self])
+  (cache-file-defined [self]))`
+
 ### Local cachefile
 Add `cache.file` to your properties pointing to e.g. `/tmp/local.cachefile`
 
@@ -26,7 +34,7 @@ The module is currently looking for a namenode-string at a zk-node called `/hado
 
 ## Initial Contributors
 
-Christian Stamm, Kai Brandes, Daley Chetwynd, Felix Bechstein, Ralf Sigmund, Florian Weyandt
+Christian Stamm, Kai Brandes, Daley Chetwynd, Carl Düvel, Florian Weyandt
 
 ## License
 
