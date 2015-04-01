@@ -8,7 +8,7 @@ In case of hdfs, the namenode can be manually configured or automatically determ
 
 Add this to your project's dependencies:
 
-`[de.otto/tesla-cachefile "0.1.1"]`
+`[de.otto/tesla-cachefile "0.0.1"]`
 
 the module, if used within a system, can be accessed using this protocol:
 
