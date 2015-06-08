@@ -120,6 +120,8 @@
 (deftest ^:unit should-extract-propper-url-fromzk-hadoop-ha-response
   (is (= "hadoop-host.de"
          (cfh/extract-url "           ;hadoop-hahadoop-host#hadoop-host.de ?>(?>")))
+  (is (= "hadoop-host.de"
+         (cfh/extract-url "           ;hadoop-hahadoop-host$hadoop-host.de ?>(?>")))
   (is (= nil (cfh/extract-url nil)))
   (is (= "hadoop-host.de"
          (cfh/extract-url "hadoop-host.de"))))

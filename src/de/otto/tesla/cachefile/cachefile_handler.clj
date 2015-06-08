@@ -42,7 +42,7 @@
 
 (defn extract-url [zk-response]
   (if-not (nil? zk-response)
-    (let [matcher #"^.*#([^\s]+)\s.*$"
+    (let [matcher #"^.*[#$]([^\s]+)\s.*$"
           without-line-breaks (.replaceAll zk-response "\n" "")]
       (if-let [name (second (re-matches matcher without-line-breaks))]
         name
