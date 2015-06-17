@@ -7,8 +7,7 @@
         :url  "https://github.com/otto-de/tesla-cachefile"}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [com.stuartsierra/component "0.2.2"]
-                 [de.otto/tesla-microservice "0.1.10"]
-                 [de.otto/tesla-zookeeper-observer "0.1.0"]
+                 [de.otto/tesla-zookeeper-observer "0.1.4"]
 
                  [org.slf4j/slf4j-api "1.7.7"]
                  [org.slf4j/jcl-over-slf4j "1.7.7"]
@@ -22,4 +21,5 @@
                   :exclusions [[org.slf4j/slf4j-log4j12]
                                [javax.servlet/servlet-api]]]]
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:dev {:dependencies [ [de.otto/tesla-microservice "0.1.10"]]}
+             :uberjar {:aot :all}})
