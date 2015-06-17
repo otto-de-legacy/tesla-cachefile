@@ -5,7 +5,8 @@
             [de.otto.tesla.system :as system]
             [com.stuartsierra.component :as c]
             [de.otto.tesla.util.test-utils :as u]
-            [de.otto.tesla.zk.zk-observer :as zk]))
+            [de.otto.tesla.zk.zk-observer :as zk])
+  (:import (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)))
 
 (defn- test-system [runtime-conf]
   (-> (system/empty-system runtime-conf)
@@ -117,21 +118,6 @@
   (is (= (nil? (cfh/without-hdfs-prefix nil))
          true)))
 
-(deftest ^:unit should-extract-propper-url-fromzk-hadoop-ha-response
-  (is (= "hadoop-host.de"
-         (cfh/extract-url "           ;hadoop-hahadoop-host#hadoop-host.de ?>(?>")))
-  (is (= "hadoop-host.de"
-         (cfh/extract-url "           ;hadoop-hahadoop-host$hadoop-host.de ?>(?>")))
-  (is (= nil (cfh/extract-url nil)))
-  (is (= "hadoop-host.de"
-         (cfh/extract-url "hadoop-host.de"))))
-
-(deftest ^:unit should-extract-url-even-if-zk-hadoop-ha-response-contains-line-breaks
-  (let [response-with-new-line "newline starting now:
-         hadoop-hahadoop-host#hadoop-host.de ?>(?>"]
-    (is (= "hadoop-host.de"
-           (cfh/extract-url response-with-new-line)))))
-
 (deftest ^:unit if-cache-file-configured-it-is-defined
   (u/with-started [started (test-system {:cache-file "hdfs:/somePath"})]
                   (let [cf-handler (:cachefile-handler started)]
@@ -141,3 +127,16 @@
   (u/with-started [started (test-system {})]
                   (let [cf-handler (:cachefile-handler started)]
                     (is (= false (cfh/cache-file-defined cf-handler))))))
+
+(deftest ^:unit parse-zk-response
+  (testing "should extract the hostname from a valid zk-response"
+    (let [a-zk-response (-> (HAZKInfoProtos$ActiveNodeInfo/newBuilder)
+                            (.setHostname "some.host.de")
+                            (.setNameserviceId "nameserviceid")
+                            (.setNamenodeId "namenodeid")
+                            (.setPort 123)
+                            (.setZkfcPort 123)
+                            .build
+                            .toByteArray)]
+      (is (= "some.host.de"
+             (cfh/parse-hostname a-zk-response))))))

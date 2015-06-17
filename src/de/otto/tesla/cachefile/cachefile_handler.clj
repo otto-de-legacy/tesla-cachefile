@@ -5,7 +5,8 @@
     [clojure.tools.logging :as log]
     [de.otto.tesla.zk.zk-observer :as zk])
   (:import (org.apache.hadoop.fs FileSystem Path)
-           (org.apache.hadoop.conf Configuration)))
+           (org.apache.hadoop.conf Configuration)
+           (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)))
 
 (defn is-hdfs-file-path [path]
   (if (not (nil? path))
@@ -40,19 +41,13 @@
   (if (not (nil? path))
     (.replaceAll path "hdfs://" "")))
 
-(defn extract-url [zk-response]
-  (if-not (nil? zk-response)
-    (let [matcher #"^.*[#$]([^\s]+)\s.*$"
-          without-line-breaks (.replaceAll zk-response "\n" "")]
-      (if-let [name (second (re-matches matcher without-line-breaks))]
-        name
-        zk-response))))
+(defn parse-hostname [zk-response]
+  (when-not (nil? zk-response)
+    (.getHostname (HAZKInfoProtos$ActiveNodeInfo/parseFrom zk-response))))
 
 (defn namenode-resolution-fn [zk path]
   (log/info "choosing zookeeper to determine namenode. Zk-path: " path)
-  (fn []
-    (let [zk-response (zk/observe! zk path)]
-      (extract-url zk-response))))
+  (partial zk/observe! zk path parse-hostname))
 
 (defn property-resolution-fn [namenode]
   (log/info "choosing properties to determine namenode")
