@@ -1,4 +1,4 @@
-(defproject de.otto/tesla-cachefile "0.0.5"
+(defproject de.otto/tesla-cachefile "0.0.6"
   :description "Addon to https://github.com/otto-de/tesla-microservice to use a cachefile locally or on hdfs."
   :url "https://github.com/otto-de/tesla-cachefile"
   :license {:name "Apache License 2.0"
@@ -10,7 +10,7 @@
                  [de.otto/tesla-zookeeper-observer "0.1.5"]
 
                  [commons-codec "1.6"]
-                 
+
                  [org.slf4j/slf4j-api "1.7.12"]
                  [org.slf4j/jcl-over-slf4j "1.7.12"]
                  [org.apache.hadoop/hadoop-hdfs "2.2.0"
