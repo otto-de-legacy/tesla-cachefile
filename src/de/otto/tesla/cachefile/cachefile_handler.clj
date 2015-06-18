@@ -53,8 +53,8 @@
   (log/info "choosing properties to determine namenode")
   (fn [] namenode))
 
-(defn namenode-fn [zk config]
-  (let [conf-namenode (:hdfs-namenode config)]
+(defn namenode-fn [zk is-hdfs-cache-file conf-namenode]
+  (if is-hdfs-cache-file
     (if (= "zookeeper" conf-namenode)
       (namenode-resolution-fn zk "/hadoop-ha/hadoop-ha/ActiveBreadCrumb")
       (property-resolution-fn conf-namenode))))
@@ -65,18 +65,17 @@
   (cache-file-exists [self])
   (cache-file-defined [self]))
 
-
 (defrecord CacheFileHandler [zookeeper config]
   c/Lifecycle
   (start [self]
     (log/info "-> starting cache-file-handler")
     (let [cache-file (get-in config [:config :cache-file])
+          hdfs-namenode (get-in config [:config :hdfs-namenode])
           is-hdfs-cache-file (is-hdfs-file-path cache-file)
-          namenode-fn (if is-hdfs-cache-file
-                        (namenode-fn zookeeper (:config config)))]
-      (if-not (nil? namenode-fn)
-        (log/info "Current Namenode is \"" (namenode-fn) "\""))
-      (assoc self :name-node-fn namenode-fn
+          choosen-namenode-fn (namenode-fn zookeeper is-hdfs-cache-file hdfs-namenode)]
+      (if-not (nil? choosen-namenode-fn)
+        (log/info "Current Namenode is:" (choosen-namenode-fn)))
+      (assoc self :name-node-fn choosen-namenode-fn
                   :is-hdfs-cache-file is-hdfs-cache-file
                   :cache-file (without-hdfs-prefix cache-file))))
   (stop [self]
