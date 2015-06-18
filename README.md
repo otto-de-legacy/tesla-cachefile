@@ -12,7 +12,9 @@ Add this to your project's dependencies:
 
 `[de.otto/tesla-cachefile "0.0.5"]`
 
-the module, if used within a system, can be accessed using this protocol:
+From version `0.0.5` tesla-cachefile needs version `0.1.4` or later of tesla-zookeeper-observer
+
+The module, if used within a system, can be accessed using this protocol:
 
 ```
 (defprotocol CfAccess

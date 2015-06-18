@@ -7,7 +7,7 @@
         :url  "https://github.com/otto-de/tesla-cachefile"}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [com.stuartsierra/component "0.2.2"]
-                 [de.otto/tesla-zookeeper-observer "0.1.4"]
+                 [de.otto/tesla-zookeeper-observer "0.1.5"]
 
                  [org.slf4j/slf4j-api "1.7.7"]
                  [org.slf4j/jcl-over-slf4j "1.7.7"]
