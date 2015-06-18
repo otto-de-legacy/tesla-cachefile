@@ -9,8 +9,7 @@
   (:import (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)))
 
 (defn- test-system [runtime-conf]
-  (-> (system/empty-system runtime-conf)
-      (dissoc :server)
+  (-> (system/base-system runtime-conf)
       (assoc :zookeeper (c/using (zk/new-zkobserver) [:config]))
       (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler) [:config :zookeeper]))))
 
