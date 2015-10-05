@@ -19,6 +19,12 @@
   (testing "should detect local file path"
     (is (not (cfh/is-hdfs-file-path "/localdir/somefile.txt")))))
 
+(deftest ^:unit check-for-get-config-key
+  (testing "should return keyword without postfix if file type is missing"
+    (is (= (cfh/get-config-key "") :cache-file)))
+  (testing "should return keyword with file type as postfix"
+    (is (= (cfh/get-config-key "csv") :cache-file-csv))))
+
 (deftest ^:unit check-the-existence-of-files
   (let [file-path "/tmp/testlocalfile.txt"]
     (u/with-started [started (test-system {:cache-file file-path})]

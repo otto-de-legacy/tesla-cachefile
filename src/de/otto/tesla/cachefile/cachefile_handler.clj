@@ -65,11 +65,14 @@
   (cache-file-exists [self])
   (cache-file-defined [self]))
 
-(defrecord CacheFileHandler [zookeeper config]
+(defn get-config-key [file-type]
+  (if (= file-type "") :cache-file (keyword (str "cache-file-"  file-type))))
+
+(defrecord CacheFileHandler [file-type zookeeper config]
   c/Lifecycle
   (start [self]
     (log/info "-> starting cache-file-handler")
-    (let [cache-file (get-in config [:config :cache-file])
+    (let [cache-file (get-in config [:config (get-config-key file-type)])
           hdfs-namenode (get-in config [:config :hdfs-namenode])
           is-hdfs-cache-file (is-hdfs-file-path cache-file)
           choosen-namenode-fn (namenode-fn zookeeper is-hdfs-cache-file hdfs-namenode)]
@@ -103,5 +106,6 @@
   (cache-file-defined [self]
     (not (nil? (:cache-file self)))))
 
-(defn new-cachefile-handler []
-  (map->CacheFileHandler {}))
+(defn new-cachefile-handler
+  ([] (map->CacheFileHandler {:file-type ""}))
+  ([file-type] (map->CacheFileHandler {:file-type file-type})))
