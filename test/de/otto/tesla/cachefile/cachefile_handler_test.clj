@@ -13,17 +13,12 @@
       (assoc :zookeeper (c/using (zk/new-zkobserver) [:config]))
       (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler) [:config :zookeeper]))))
 
-(deftest ^:unit check-for-hdfs-file-path
-  (testing "should detect HDFS file path"
-    (is (cfh/is-hdfs-file-path "hdfs://somedir/somefile.txt")))
-  (testing "should detect local file path"
-    (is (not (cfh/is-hdfs-file-path "/localdir/somefile.txt")))))
-
+(def get-config-key #'cfh/get-config-key)
 (deftest ^:unit check-for-get-config-key
   (testing "should return keyword without postfix if file type is missing"
-    (is (= (cfh/get-config-key "") :cache-file)))
+    (is (= (get-config-key "") :cache-file)))
   (testing "should return keyword with file type as postfix"
-    (is (= (cfh/get-config-key "csv") :cache-file-csv))))
+    (is (= (get-config-key "csv") :cache-file-csv))))
 
 (deftest ^:unit check-the-existence-of-files
   (let [file-path "/tmp/testlocalfile.txt"]
@@ -31,43 +26,28 @@
                     (let [cfh (:cachefile-handler started)]
                       (testing "check if local file exists"
                         (spit file-path "")
-                        (is (cfh/cache-file-exists cfh)))
+                        (is (= true (cfh/cache-file-exists cfh))))
                       (testing "check if local file does not exist"
                         (.delete (io/file file-path))
                         (is (not (cfh/cache-file-exists cfh))))))))
 
-(deftest ^:unit check-the-existence-of-hdfs-files
-  (let [file-path "hdfs://tmp/testlocalfile.txt"]
-    (with-redefs [cfh/hdfs-file-exist (fn [_ _] true)]
-      (u/with-started [started (test-system {:cache-file file-path})]
-                      (testing "check if hdfs-file exists"
-                        (is (cfh/cache-file-exists (:cachefile-handler started))))))))
-
-(deftest ^:unit check-the-existence-of-hdfs-files2
-  (let [file-path "hdfs://tmp/testlocalfile.txt"]
-    (with-redefs [cfh/hdfs-file-exist (fn [_ _] false)]
-      (u/with-started [started (test-system {:cache-file file-path})]
-                      (testing "check if hdfs-file does not exist"
-                        (is (not (cfh/cache-file-exists (:cachefile-handler started)))))))))
+(deftest ^:unit if-cache-file-isnot-defined-it-should-not-exist
+  (u/with-started [started (test-system {})]
+                  (let [cf-handler (:cachefile-handler started)]
+                    (is (= (cfh/cache-file-exists cf-handler)
+                           false)))))
 
 (deftest ^:unit check-reading-the-content-of-files
-  (let [file-path "/tmp/testlocalfile.txt"]
+  (let [file-path "/tmp/testlocalfile.txt"
+        crc-file "/tmp/.testlocalfile.txt.crc"]
     (u/with-started [started (test-system {:cache-file file-path})]
                     (let [cfh (:cachefile-handler started)]
                       (testing "reading content from a local file"
+                        (.delete (io/file file-path))
+                        (.delete (io/file crc-file))
                         (spit file-path "somevalue=foo")
                         (is (= "somevalue=foo"
                                (cfh/read-cache-file cfh))))))))
-
-(deftest ^:unit check-reading-the-content-of-hdfs-files
-  (let [file-path "hdfs://tmp/testlocalfile.txt"]
-    (with-redefs [cfh/hdfs-file-exist (fn [_ _] true)
-                  cfh/read-hdfs-file (fn [_ _] "some_hdfs_content")]
-      (u/with-started [started (test-system {:cache-file file-path})]
-                      (let [cfh (:cachefile-handler started)]
-                        (testing "reading content from a hdfs file"
-                          (is (= "some_hdfs_content"
-                                 (cfh/read-cache-file cfh)))))))))
 
 (deftest ^:unit check-writing-files
   (let [file-path "/tmp/testlocalfile.txt"]
@@ -79,60 +59,17 @@
                         (is (= "some-content"
                                (cfh/read-cache-file cfh))))))))
 
-(deftest ^:unit writing-a-hdfs-file
-  (let [file-path "/tmp/testlocalfile.txt"]
-    (with-redefs [cfh/write-hdfs-file (fn [_ _ content] (spit file-path content))
-                  cfh/read-hdfs-file (fn [_ _] (slurp file-path))
-                  cfh/hdfs-file-exist (fn [_ _] true)]
-      (u/with-started [started (test-system {:cache-file "hdfs://notUsedForWritingBecauseOfMocks"})]
-                      (let [cfh (:cachefile-handler started)]
-                        (cfh/write-cache-file cfh "some-content")
-                        (is (= "some-content"
-                               (cfh/read-cache-file cfh))))))))
-
-(deftest ^:unit build-file-system
-  (testing "should use hdfs namenode if property is set"
-    (let [c (cfh/get-hdfs-conf "hdfs://someHost")]
-      (is (= "hdfs://someHost"
-             (.get c "fs.defaultFS"))))))
-
-(deftest ^:unit should-check-if-hdfs-file-exists
-  (with-redefs [cfh/hdfs-file-exist (fn [_ _] true)]
-    (u/with-started [started (test-system {:cache-file    "hdfs://somePath"
-                                           :hdfs-namenode "hdfs://someHost"})]
-                    (let [cf-handler (:cachefile-handler started)]
-                      (is (= (cfh/cache-file-exists cf-handler)
-                             true))))))
-
-(deftest ^:unit should-check-if-local-file-exists
-  (spit "/tmp/somePath" "")
-  (u/with-started [started (test-system {:cache-file "/tmp/somePath"})]
-                  (let [cf-handler (:cachefile-handler started)]
-                    (is (= (cfh/cache-file-exists cf-handler)
-                           true)))))
-
-(deftest ^:unit if-cache-file-isnot-defined-it-should-not-exist
-  (u/with-started [started (test-system {})]
-                  (let [cf-handler (:cachefile-handler started)]
-                    (is (= (cfh/cache-file-exists cf-handler)
-                           false)))))
-
-(deftest ^:unit should-return-nil-for-undefined-path
-  (is (= (nil? (cfh/is-hdfs-file-path nil))
-         false))
-  (is (= (nil? (cfh/without-hdfs-prefix nil))
-         true)))
-
 (deftest ^:unit if-cache-file-configured-it-is-defined
   (u/with-started [started (test-system {:cache-file "hdfs:/somePath"})]
                   (let [cf-handler (:cachefile-handler started)]
                     (is (= true (cfh/cache-file-defined cf-handler))))))
-
+;
 (deftest ^:unit if-cache-file-not-configured-it-is-not-defined
   (u/with-started [started (test-system {})]
                   (let [cf-handler (:cachefile-handler started)]
                     (is (= false (cfh/cache-file-defined cf-handler))))))
 
+(def parse-hostname #'cfh/parse-hostname)
 (deftest ^:unit parse-zk-response
   (testing "should extract the hostname from a valid zk-response"
     (let [a-zk-response (-> (HAZKInfoProtos$ActiveNodeInfo/newBuilder)
@@ -144,4 +81,16 @@
                             .build
                             .toByteArray)]
       (is (= "some.host.de"
-             (cfh/parse-hostname a-zk-response))))))
+             (parse-hostname a-zk-response))))))
+
+(deftest ^:unit test-namenode-injection
+  (let [file-path "hdfs://{ZK_NAMENODE}/foo/bar"
+        namenode (atom "first_namenode")]
+    (with-redefs [cfh/namenode-from-zookeeper (fn [_] @namenode)]
+      (u/with-started [started (test-system {:cache-file file-path})]
+                      (let [cfh (:cachefile-handler started)]
+                        (testing "check if zookeeper-namenode gets injected"
+                          (is (= "hdfs://first_namenode/foo/bar" (cfh/current-cache-file cfh))))
+                        (reset! namenode "second_namenode")
+                        (testing "check if zookeeper-namenode gets injected with fresh value"
+                          (is (= "hdfs://second_namenode/foo/bar" (cfh/current-cache-file cfh)))))))))
