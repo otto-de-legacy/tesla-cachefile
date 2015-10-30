@@ -9,8 +9,10 @@
       (.substring file-path 0 occurence))))
 
 (defn- all-generations [parent-path]
-  (let [status (hdfs/list-file-status parent-path)]
-    (sort (map #(.getName (.getPath %)) status))))
+  (if (hdfs/exists? parent-path)
+    (let [status (hdfs/list-file-status parent-path)]
+      (sort (map #(.getName (.getPath %)) status)))
+    []))
 
 (defn- latest-generation [all-generations]
   (or

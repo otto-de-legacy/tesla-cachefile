@@ -55,8 +55,10 @@
   (write-cache-file [_ content]
     (let [lines (if (coll? content)
                   content
-                  [content])]
-      (hdfs/write-lines (current-cache-file-fn) lines)))
+                  [content])
+          file-path (current-cache-file-fn)]
+      (hdfs/make-parents file-path)
+      (hdfs/write-lines file-path lines)))
 
   (read-cache-file [_]
     (with-open [rdr (hdfs/buffered-reader (current-cache-file-fn))]

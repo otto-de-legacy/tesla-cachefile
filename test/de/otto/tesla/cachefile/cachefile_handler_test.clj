@@ -4,7 +4,9 @@
             [clojure.java.io :as io]
             [de.otto.tesla.cachefile.test-system :as ts]
             [de.otto.tesla.util.test-utils :as u])
-  (:import (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)))
+  (:import (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)
+           (org.apache.hadoop.fs FileUtil)
+           (java.io File)))
 
 
 (def get-config-key #'cfh/get-config-key)
@@ -50,6 +52,18 @@
                       (testing "writing a local file"
                         (.delete (io/file file-path))
                         (cfh/write-cache-file cfh "some-content")
+                        (is (= "some-content"
+                               (cfh/read-cache-file cfh))))))))
+
+(deftest ^:unit check-writing-files-with-latest-generation
+  (let [file-path "/tmp/foo/{LATEST_GENERATION}/testlocalfile.txt"]
+    (u/with-started [started (ts/test-system {:cache-file file-path})]
+                    (let [cfh (:cachefile-handler started)]
+                      (testing "should write a local file to a generation path"
+                        (FileUtil/fullyDelete (File. "/tmp/foo"))
+                        (cfh/write-cache-file cfh "some-content")
+                        (is (= "/tmp/foo/000000/testlocalfile.txt"
+                               (cfh/current-cache-file cfh)))
                         (is (= "some-content"
                                (cfh/read-cache-file cfh))))))))
 
