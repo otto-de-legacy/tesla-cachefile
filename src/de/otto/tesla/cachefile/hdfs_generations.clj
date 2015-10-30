@@ -13,7 +13,9 @@
     (sort (map #(.getName (.getPath %)) status))))
 
 (defn- latest-generation [all-generations]
-  (last all-generations))
+  (or
+    (last all-generations)
+    "000000"))
 
 (defn- replace-latest-generation-placholder
   ([file-path latest-generation]
