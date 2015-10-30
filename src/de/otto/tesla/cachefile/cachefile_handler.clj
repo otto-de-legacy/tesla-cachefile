@@ -3,11 +3,11 @@
     [com.stuartsierra.component :as c]
     [hdfs.core :as hdfs]
     [clojure.tools.logging :as log]
+    [de.otto.tesla.cachefile.hdfs-generations :as hdfsgens]
     [de.otto.tesla.zk.zk-observer :as zk])
   (:import (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)))
 
 (def ZK_NAMENODE_PLACEHOLDER "{ZK_NAMENODE}")
-(def LATEST_GENERATION "{LATEST_GENERATION}")
 
 (defprotocol CfAccess
   (read-cache-file [self])
@@ -31,24 +31,15 @@
   (let [current-namenode (namenode-from-zookeeper zookeeper)]
     (clojure.string/replace cache-file ZK_NAMENODE_PLACEHOLDER current-namenode)))
 
-(defn- replace-latest-generation-placholder [cache-file]
-  ;to be implemented
-  cache-file)
-
 (defn- inject-current-namenode [cache-file zookeeper]
   (if (.contains cache-file ZK_NAMENODE_PLACEHOLDER)
     (replace-namenode-placholder cache-file zookeeper)
     cache-file))
 
-(defn- inject-latest-hdfs-generation [cache-file]
-  (if (.contains cache-file LATEST_GENERATION)
-    (replace-latest-generation-placholder cache-file)
-    cache-file))
-
 (defn current-cache-file [{:keys [zookeeper cache-file]}]
   (some-> cache-file
           (inject-current-namenode zookeeper)
-          (inject-latest-hdfs-generation)))
+          (hdfsgens/inject-latest-hdfs-generation)))
 
 (defrecord CacheFileHandler [file-type zookeeper config current-cache-file-fn cache-file]
   c/Lifecycle
