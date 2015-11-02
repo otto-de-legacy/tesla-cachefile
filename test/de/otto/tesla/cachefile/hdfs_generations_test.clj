@@ -20,7 +20,7 @@
                                       (spit "/tmp/foo/000030/foo" "bar")
                                       (is (= "/tmp/foo/000030/foo" (cfh/current-cache-file cfh :read)))
                                       (is (= "/tmp/foo/000031/foo" (cfh/current-cache-file cfh :write)))
-                                      (is (= "bar" (cfh/read-cache-file cfh))))))))
+                                      (is (= "bar" (cfh/slurp-cache-file cfh))))))))
 
 (deftest ^:unit test-hdfs-generation-injection-with-write-ahead
          (let [file-path "/tmp/foo/{GENERATION}/foo"]
@@ -34,7 +34,7 @@
                                       (spit "/tmp/foo/000031/foo" "bar")
                                       (is (= "/tmp/foo/000031/foo" (cfh/current-cache-file cfh :read)))
                                       (is (= "/tmp/foo/000032/foo" (cfh/current-cache-file cfh :write)))
-                                      (is (= "bar" (cfh/read-cache-file cfh))))))))
+                                      (is (= "bar" (cfh/slurp-cache-file cfh))))))))
 
 (deftest ^:unit test-hdfs-generation-injection-no-generation-present
          (let [file-path "/tmp/foo/{GENERATION}/foo"]
@@ -45,10 +45,10 @@
                                       (io/make-parents "/tmp/foo/foo")
                                       (is (= "/tmp/foo/000000/foo" (cfh/current-cache-file cfh :read)))
                                       (is (= "/tmp/foo/000000/foo" (cfh/current-cache-file cfh :write)))
-                                      (cfh/write-cache-file cfh "baz")
-                                      (is (= "baz" (cfh/read-cache-file cfh))))))))
+                                      (cfh/write-cache-file cfh ["baz"])
+                                      (is (= "baz" (cfh/slurp-cache-file cfh))))))))
 
-(def parent-of-latest-generation #'hdfsgens/parent-of-latest-generation)
+(def parent-of-latest-generation #'hdfsgens/parentpath-of-generation-placeholder)
 (deftest parent-paths
          (testing "should return parent path for latest generation"
                   (is (= "/tmp/foo/"  (parent-of-latest-generation "/tmp/foo/{GENERATION}/foo/bar"))))

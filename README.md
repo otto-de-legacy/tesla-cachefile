@@ -10,22 +10,31 @@ In case of hdfs, the namenode can be automatically determined by querying a zook
 
 Add this to your project's dependencies:
 
-`[de.otto/tesla-cachefile "0.0.9"]`
+`[de.otto/tesla-cachefile "0.0.10"]`
 
 From version `0.0.5` tesla-cachefile needs version `0.1.4` or later of tesla-zookeeper-observer
+
+Version `0.0.10` has some api-changes: 
+
+   * write-cache-file now takes a line-seq as input
+   * read-cache-file now takes an additional argument (read-fn), which is a function to accept a BufferedReader
+   * slurp-cache-file has the old behaviour of getting the file's content as one big string. 
+
 Version `0.0.9` has some major changes: 
 
    * the property `hdfs.namenode` has been removed. The namenode is now configured directly in the cache-file-path
    * you can use `{ZK_NAMENODE}` in your cache-file-path to determine the namenode from zookeeper
    * you can use `{GENERATION}` in your cache-file-path to read from the latest generation with the cache-file present and
      write to the latest generation if cache-file absent or otherwise to a new generation
+   * uses [hdfs-clj "0.1.15"]
 
 The module, if used within a system, can be accessed using this protocol:
 
 ```
 (defprotocol CfAccess
- (read-cache-file [self])
-  (write-cache-file [self content])
+  (read-cache-file [self read-fn])
+  (slurp-cache-file [self])
+  (write-cache-file [self lines])
   (cache-file-exists [self])
   (cache-file-defined [self]))
 ```

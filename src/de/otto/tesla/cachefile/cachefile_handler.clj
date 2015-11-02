@@ -10,7 +10,8 @@
 (def ZK_NAMENODE_PLACEHOLDER "{ZK_NAMENODE}")
 
 (defprotocol CfAccess
-  (read-cache-file [self])
+  (read-cache-file [self read-fn])
+  (slurp-cache-file [self])
   (write-cache-file [self content])
   (cache-file-exists [self])
   (cache-file-defined [self]))
@@ -39,7 +40,7 @@
 (defn current-cache-file [{:keys [zookeeper cache-file]} read-or-write]
   (some-> cache-file
           (inject-current-namenode zookeeper)
-          (hdfsgens/inject-latest-hdfs-generation read-or-write)))
+          (hdfsgens/inject-hdfs-generation read-or-write)))
 
 (defrecord CacheFileHandler [file-type zookeeper config current-cache-file-fn cache-file]
   c/Lifecycle
@@ -52,17 +53,17 @@
     self)
 
   CfAccess
-  (write-cache-file [_ content]
-    (let [lines (if (coll? content)
-                  content
-                  [content])
-          file-path (current-cache-file-fn :write)]
+  (write-cache-file [_ lines]
+    (let [file-path (current-cache-file-fn :write)]
       (hdfs/make-parents file-path)
       (hdfs/write-lines file-path lines)))
 
-  (read-cache-file [_]
+  (slurp-cache-file [self]
+    (read-cache-file self #(clojure.string/join \newline (line-seq %))))
+
+  (read-cache-file [_ read-fn]
     (with-open [rdr (hdfs/buffered-reader (current-cache-file-fn :read))]
-      (clojure.string/join \newline (line-seq rdr))))
+      (read-fn rdr)))
 
   (cache-file-exists [_]
     (if-let [file-path (current-cache-file-fn :read)]

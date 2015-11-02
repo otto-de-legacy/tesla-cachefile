@@ -17,7 +17,7 @@
 (def GENERATION "{GENERATION}")
 (def DEFAULT_GENERATION (as-generation-string 0))
 
-(defn- parent-of-latest-generation [file-path]
+(defn- parentpath-of-generation-placeholder [file-path]
   (let [occurence (.indexOf file-path GENERATION)]
     (if (>= occurence 0)
       (.substring file-path 0 occurence))))
@@ -52,10 +52,10 @@
     (as-generation-string (inc int-val))))
 
 (defn- latest-if-file-absent-or-new [file-path all-generations]
-  (let [latest-generation (latest-generation all-generations)]
-    (if-not (file-present-for-generation file-path latest-generation)
-      latest-generation
-      (increase-generation latest-generation))))
+  (let [latest (latest-generation all-generations)]
+    (if-not (file-present-for-generation file-path latest)
+      latest
+      (increase-generation latest))))
 
 (defn- generation-for [file-path read-or-write all-generations]
   (case read-or-write
@@ -65,13 +65,13 @@
 (defn- replace-generation-placholder [file-path read-or-write]
   (or
     (some->> file-path
-             (parent-of-latest-generation)
+             (parentpath-of-generation-placeholder)
              (all-generations)
              (generation-for file-path read-or-write)
              (inject-generation file-path))
     file-path))
 
-(defn inject-latest-hdfs-generation [cache-file read-or-write]
+(defn inject-hdfs-generation [cache-file read-or-write]
   (if (.contains cache-file GENERATION)
     (replace-generation-placholder cache-file read-or-write)
     cache-file))

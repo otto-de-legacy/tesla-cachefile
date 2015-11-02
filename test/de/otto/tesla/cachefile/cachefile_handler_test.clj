@@ -42,7 +42,7 @@
                         (.delete (io/file crc-file))
                         (spit file-path "somevalue=foo")
                         (is (= "somevalue=foo"
-                               (cfh/read-cache-file cfh))))))))
+                               (cfh/slurp-cache-file cfh))))))))
 
 (deftest ^:unit check-writing-files
   (let [file-path "/tmp/testlocalfile.txt"]
@@ -50,23 +50,23 @@
                     (let [cfh (:cachefile-handler started)]
                       (testing "writing a local file"
                         (.delete (io/file file-path))
-                        (cfh/write-cache-file cfh "some-content")
+                        (cfh/write-cache-file cfh ["some-content"])
                         (is (= "some-content"
-                               (cfh/read-cache-file cfh))))))))
+                               (cfh/slurp-cache-file cfh))))))))
 
 (deftest ^:unit check-writing-files-with-latest-generation
   (let [file-path "/tmp/foo/{GENERATION}/testlocalfile.txt"]
     (u/with-started [started (ts/test-system {:cache-file file-path})]
-                    (let [cfh (:cachefile-handler started)]
+                    (let [cfh (:cachefile-handler started)
+                             ]
                       (testing "should write a local file to a generation path"
                         (FileUtil/fullyDelete (File. "/tmp/foo"))
                         (is (= "/tmp/foo/000000/testlocalfile.txt" (cfh/current-cache-file cfh :read)))
                         (is (= "/tmp/foo/000000/testlocalfile.txt" (cfh/current-cache-file cfh :write)))
-                        (cfh/write-cache-file cfh "some-content")
+                        (cfh/write-cache-file cfh ["some-content" "more-content"])
                         (is (= "/tmp/foo/000000/testlocalfile.txt" (cfh/current-cache-file cfh :read)))
                         (is (= "/tmp/foo/000001/testlocalfile.txt" (cfh/current-cache-file cfh :write)))
-                        (is (= "some-content"
-                               (cfh/read-cache-file cfh))))))))
+                        (is (= ["some-content" "more-content"] (cfh/read-cache-file cfh #(into [] (line-seq %))))))))))
 
 (deftest ^:unit if-cache-file-configured-it-is-defined
   (u/with-started [started (ts/test-system {:cache-file "hdfs:/somePath"})]
