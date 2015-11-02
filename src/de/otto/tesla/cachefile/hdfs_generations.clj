@@ -22,10 +22,15 @@
     (if (>= occurence 0)
       (.substring file-path 0 occurence))))
 
+(defn- is-generation? [file-name]
+  (not (nil? (re-matches #"\d+" file-name))))
+
 (defn- all-generations [parent-path]
   (if (hdfs/exists? parent-path)
-    (let [status (hdfs/list-file-status parent-path)]
-      (sort (map #(.getName (.getPath %)) status)))
+    (->> (hdfs/list-file-status parent-path)
+         (map #(.getName (.getPath %)))
+         (sort)
+         (filter is-generation?))
     []))
 
 (defn- latest-generation [all-generations]

@@ -13,9 +13,11 @@
                   (let [cfh (:cachefile-handler started)]
                     (testing "should inject latest generation"
                       (FileUtil/fullyDelete (File. "/tmp/foo"))
+
                       (io/make-parents "/tmp/foo/000029/subfolder/<-")
                       (io/make-parents "/tmp/foo/000030/subfolder/<-")
                       (io/make-parents "/tmp/foo/000031/subfolder/<-")
+                      (spit "/tmp/foo/stupidfile.txt" "")
                       (spit "/tmp/foo/000030/subfolder/_SUCCESS" "")
                       (spit "/tmp/foo/000030/subfolder/foo.bar" "baz")
                       (is (= "/tmp/foo/000030/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :read)))
@@ -97,3 +99,15 @@
     (is (= "000000" (as-generation-string 9999999))))
   (testing "should-return generation string with 6 digits again-again-again"
     (is (= "000000" (as-generation-string -1)))))
+
+
+(def is-generation? #'hdfsgens/is-generation?)
+(deftest test-generation-check
+  (testing "should determine a proper generation"
+    (is (= true (is-generation? "000000")))
+    (is (= true (is-generation? "999999"))))
+  (testing "should determine an invalid generation"
+    (is (= false (is-generation? "0000d0")))
+    (is (= false (is-generation? ".")))
+    (is (= false (is-generation? "stupid-file.txt")))
+    (is (= false (is-generation? "9999a9")))))
