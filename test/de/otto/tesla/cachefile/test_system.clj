@@ -7,4 +7,4 @@
 (defn test-system [runtime-conf]
   (-> (system/base-system runtime-conf)
       (assoc :zookeeper (c/using (zk/new-zkobserver) [:config]))
-      (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler) [:config :zookeeper]))))
+      (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler "test-data") [:config :zookeeper]))))

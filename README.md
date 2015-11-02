@@ -10,9 +10,16 @@ In case of hdfs, the namenode can be automatically determined by querying a zook
 
 Add this to your project's dependencies:
 
-`[de.otto/tesla-cachefile "0.0.10"]`
+[![Clojars Project](http://clojars.org/de.otto/tesla-cachefile/latest-version.svg)](http://clojars.org/de.otto/tesla-cachefile)
 
 From version `0.0.5` tesla-cachefile needs version `0.1.4` or later of tesla-zookeeper-observer
+
+Version `0.1.0` has some major changes: 
+   
+   * a folder is now configured by the property `your.name.toplevel.path` (`{ZK_NAMENODE}` and `{GENERATION}` can be used)
+   * many files can now been written to the folder configured
+   * generation-logic now works based on `_SUCCESS`-files: Read from latest generation with `_SUCCESS`-file + 
+     write to latest generation if `_SUCCESS`-file is not present or otherwise create and write to new generation
 
 Version `0.0.10` has some api-changes: 
 
@@ -30,32 +37,34 @@ Version `0.0.9` has some major changes:
 
 The module, if used within a system, can be accessed using this protocol:
 
-```
-(defprotocol CfAccess
-  (read-cache-file [self read-fn])
-  (slurp-cache-file [self])
-  (write-cache-file [self lines])
-  (cache-file-exists [self])
-  (cache-file-defined [self]))
-```
+    (defprotocol CfAccess
+      (read-cache-file [self filename read-fn])
+      (slurp-cache-file [self filename])   
+      (write-cache-file [self filename lines])
+      (write-success-file [self])
+      (cache-file-exists [self filename]))
+  
 
 ### Local cachefile
-Add `cache.file` to your properties pointing to e.g. `/tmp/local.cachefile`
+Add `your.name.toplevel.path` to your properties pointing to e.g. `/tmp/yourfolder`  
+`your.name` is defined when adding the CacheFileHandler to your system:
+
+    (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler "your-name") [:config :zookeeper]))
 
 ### HDFS cachefile
-Add `cache.file` to your properties pointing to e.g. `hdfs://namenode:port/some/hdfs.cachefile`
+Add `your.name.toplevel.path` to your properties pointing to e.g. `hdfs://namenode:port/some/folder`
 
 ### cachefile with generations
-Add `cache.file` to your properties pointing to e.g. `hdfs://namenode:port/some/{GENERATION}/your.cachefile`
+Add `your.name.toplevel.path` to your properties pointing to e.g. `hdfs://namenode:port/some/{GENERATION}/folder`
 
 #### Configuring a namenode via zookeeper
-Add `cache.file` to your properties pointing to e.g. `hdfs://{ZK_NAMENODE}/some/hdfs.cachefile`
+Add `your.name.toplevel.path` to your properties pointing to e.g. `hdfs://{ZK_NAMENODE}/some/folder`
 Add `zookeeper.connect` to your properties containing a valid zookeeper connection string.
 The module is currently looking for a namenode-string at a zk-node called `/hadoop-ha/hadoop-ha/ActiveBreadCrumb`.
 
 ## Initial Contributors
 
-Christian Stamm, Kai Brandes, Daley Chetwynd, Carl Düvel, Florian Weyandt
+Christian Stamm, Kai Brandes, Torsten Mangner, Daley Chetwynd, Carl Düvel, Florian Weyandt
 
 ## License
 

@@ -36,13 +36,13 @@
 (defn- inject-generation [file-path generation]
   (clojure.string/replace file-path GENERATION generation))
 
-(defn- file-present-for-generation [file-path current-generation]
-  (hdfs/exists? (inject-generation file-path current-generation)))
+(defn- success-file-present-for-generation [file-path current-generation]
+  (hdfs/exists? (str (inject-generation file-path current-generation) "/_SUCCESS")))
 
-(defn- latest-with-file-present [file-path all-generations]
+(defn- latest-with-success-file [file-path all-generations]
   (loop [generations (reverse all-generations)]
     (if-let [current-generation (first generations)]
-      (if (file-present-for-generation file-path current-generation)
+      (if (success-file-present-for-generation file-path current-generation)
         current-generation
         (recur (rest generations)))
       DEFAULT_GENERATION)))
@@ -51,28 +51,28 @@
   (let [int-val (Integer/parseInt latest-generation)]
     (as-generation-string (inc int-val))))
 
-(defn- latest-if-file-absent-or-new [file-path all-generations]
+(defn- latest-if-success-file-absent-or-new [file-path all-generations]
   (let [latest (latest-generation all-generations)]
-    (if-not (file-present-for-generation file-path latest)
+    (if-not (success-file-present-for-generation file-path latest)
       latest
       (increase-generation latest))))
 
 (defn- generation-for [file-path read-or-write all-generations]
   (case read-or-write
-    :read (latest-with-file-present file-path all-generations)
-    :write (latest-if-file-absent-or-new file-path all-generations)))
+    :read (latest-with-success-file file-path all-generations)
+    :write (latest-if-success-file-absent-or-new file-path all-generations)))
 
-(defn- replace-generation-placholder [file-path read-or-write]
+(defn- replace-generation-placholder [path read-or-write]
   (or
-    (some->> file-path
+    (some->> path
              (parentpath-of-generation-placeholder)
              (all-generations)
-             (generation-for file-path read-or-write)
-             (inject-generation file-path))
-    file-path))
+             (generation-for path read-or-write)
+             (inject-generation path))
+    path))
 
-(defn inject-hdfs-generation [cache-file read-or-write]
-  (if (.contains cache-file GENERATION)
-    (replace-generation-placholder cache-file read-or-write)
-    cache-file))
+(defn inject-hdfs-generation [path read-or-write]
+  (if (.contains path GENERATION)
+    (replace-generation-placholder path read-or-write)
+    path))
 
