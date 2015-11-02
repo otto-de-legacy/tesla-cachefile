@@ -36,10 +36,10 @@
     (replace-namenode-placholder cache-file zookeeper)
     cache-file))
 
-(defn current-cache-file [{:keys [zookeeper cache-file]}]
+(defn current-cache-file [{:keys [zookeeper cache-file]} read-or-write]
   (some-> cache-file
           (inject-current-namenode zookeeper)
-          (hdfsgens/inject-latest-hdfs-generation)))
+          (hdfsgens/inject-latest-hdfs-generation read-or-write)))
 
 (defrecord CacheFileHandler [file-type zookeeper config current-cache-file-fn cache-file]
   c/Lifecycle
@@ -56,16 +56,16 @@
     (let [lines (if (coll? content)
                   content
                   [content])
-          file-path (current-cache-file-fn)]
+          file-path (current-cache-file-fn :write)]
       (hdfs/make-parents file-path)
       (hdfs/write-lines file-path lines)))
 
   (read-cache-file [_]
-    (with-open [rdr (hdfs/buffered-reader (current-cache-file-fn))]
+    (with-open [rdr (hdfs/buffered-reader (current-cache-file-fn :read))]
       (clojure.string/join \newline (line-seq rdr))))
 
   (cache-file-exists [_]
-    (if-let [file-path (current-cache-file-fn)]
+    (if-let [file-path (current-cache-file-fn :read)]
       (hdfs/exists? file-path)
       false))
 

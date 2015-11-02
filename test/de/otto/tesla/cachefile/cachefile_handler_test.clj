@@ -8,7 +8,6 @@
            (org.apache.hadoop.fs FileUtil)
            (java.io File)))
 
-
 (def get-config-key #'cfh/get-config-key)
 (deftest ^:unit check-for-get-config-key
   (testing "should return keyword without postfix if file type is missing"
@@ -56,14 +55,16 @@
                                (cfh/read-cache-file cfh))))))))
 
 (deftest ^:unit check-writing-files-with-latest-generation
-  (let [file-path "/tmp/foo/{LATEST_GENERATION}/testlocalfile.txt"]
+  (let [file-path "/tmp/foo/{GENERATION}/testlocalfile.txt"]
     (u/with-started [started (ts/test-system {:cache-file file-path})]
                     (let [cfh (:cachefile-handler started)]
                       (testing "should write a local file to a generation path"
                         (FileUtil/fullyDelete (File. "/tmp/foo"))
+                        (is (= "/tmp/foo/000000/testlocalfile.txt" (cfh/current-cache-file cfh :read)))
+                        (is (= "/tmp/foo/000000/testlocalfile.txt" (cfh/current-cache-file cfh :write)))
                         (cfh/write-cache-file cfh "some-content")
-                        (is (= "/tmp/foo/000000/testlocalfile.txt"
-                               (cfh/current-cache-file cfh)))
+                        (is (= "/tmp/foo/000000/testlocalfile.txt" (cfh/current-cache-file cfh :read)))
+                        (is (= "/tmp/foo/000001/testlocalfile.txt" (cfh/current-cache-file cfh :write)))
                         (is (= "some-content"
                                (cfh/read-cache-file cfh))))))))
 
@@ -98,7 +99,9 @@
       (u/with-started [started (ts/test-system {:cache-file file-path})]
                       (let [cfh (:cachefile-handler started)]
                         (testing "check if zookeeper-namenode gets injected"
-                          (is (= "hdfs://first_namenode/foo/bar" (cfh/current-cache-file cfh))))
+                          (is (= "hdfs://first_namenode/foo/bar" (cfh/current-cache-file cfh :read)))
+                          (is (= "hdfs://first_namenode/foo/bar" (cfh/current-cache-file cfh :write))))
                         (reset! namenode "second_namenode")
                         (testing "check if zookeeper-namenode gets injected with fresh value"
-                          (is (= "hdfs://second_namenode/foo/bar" (cfh/current-cache-file cfh)))))))))
+                          (is (= "hdfs://second_namenode/foo/bar" (cfh/current-cache-file cfh :read)))
+                          (is (= "hdfs://second_namenode/foo/bar" (cfh/current-cache-file cfh :write)))))))))
