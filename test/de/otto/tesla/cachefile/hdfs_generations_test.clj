@@ -8,6 +8,77 @@
   (:import (org.apache.hadoop.fs FileUtil)
            (java.io File)))
 
+(defn sorted-subpaths-of [path]
+  (into #{} (sort (map #(.getPath %) (file-seq (File. path))))))
+
+(defn contains-path? [set-of-paths path-to-check]
+  (not (nil? (get set-of-paths path-to-check))))
+
+(deftest ^:unit test-hdfs-generation-cleanup-logic
+  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep 2
+                                            :test-data-toplevel-path   "/tmp/foo/{GENERATION}/subfolder"})]
+                  (let [cfh (:cachefile-handler started)]
+                    (testing "should keep 2 successful generations after cleanup"
+                      (FileUtil/fullyDelete (File. "/tmp/foo"))
+                      (cfh/write-cache-file cfh "foo.bar.0" [""]) (cfh/write-success-file cfh)
+                      (cfh/write-cache-file cfh "foo.bar.1" [""]) (cfh/write-success-file cfh)
+                      (cfh/write-cache-file cfh "foo.bar.2" [""]) (cfh/write-success-file cfh)
+                      (cfh/write-cache-file cfh "foo.bar.3" [""]) (cfh/write-success-file cfh)
+                      (cfh/cleanup-generations cfh)
+                      (let [current-paths (sorted-subpaths-of "/tmp/foo")]
+                        (is (= false (contains-path? current-paths "/tmp/foo/000000/subfolder")))
+                        (is (= false (contains-path? current-paths "/tmp/foo/000001/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000002/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000003/subfolder"))))
+                      (is (= "/tmp/foo/000003/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :read)))
+                      (is (= "/tmp/foo/000004/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :write)))))))
+
+(deftest ^:unit test-hdfs-generation-cleanup-logic-nothing-left
+  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep 0
+                                            :test-data-toplevel-path   "/tmp/foo/{GENERATION}"})]
+                  (let [cfh (:cachefile-handler started)]
+                    (testing "should keep 0 generations, this doesn't really make sense, but works"
+                      (FileUtil/fullyDelete (File. "/tmp/foo"))
+                      (cfh/write-cache-file cfh "foo.bar.0" [""]) (cfh/write-success-file cfh)
+                      (cfh/write-cache-file cfh "foo.bar.1" [""]) (cfh/write-success-file cfh)
+                      (cfh/write-cache-file cfh "foo.bar.2" [""]) (cfh/write-success-file cfh)
+                      (cfh/write-cache-file cfh "foo.bar.3" [""]) (cfh/write-success-file cfh)
+                      (cfh/cleanup-generations cfh)
+                      (let [current-paths (sorted-subpaths-of "/tmp/foo")]
+                        (is (= false (contains-path? current-paths "/tmp/foo/000000")))
+                        (is (= false (contains-path? current-paths "/tmp/foo/000001")))
+                        (is (= false (contains-path? current-paths "/tmp/foo/000002")))
+                        (is (= false (contains-path? current-paths "/tmp/foo/000003"))))
+                      (is (= "/tmp/foo/000000/foo.bar" (cfh/build-file-path cfh "foo.bar" :read)))
+                      (is (= "/tmp/foo/000000/foo.bar" (cfh/build-file-path cfh "foo.bar" :write)))))))
+
+(deftest ^:unit test-hdfs-generation-cleanup-logic-keep-empty-folders
+  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep 2
+                                            :test-data-toplevel-path   "/tmp/foo/{GENERATION}/subfolder"})]
+                  (let [cfh (:cachefile-handler started)]
+                    (testing "should keep 0 generations, this doesn't really make sense, but works"
+                      (FileUtil/fullyDelete (File. "/tmp/foo"))
+                      (cfh/write-cache-file cfh "foo.bar.0" [""]) (cfh/write-success-file cfh)
+                      (cfh/write-cache-file cfh "foo.bar.1" [""]) (cfh/write-success-file cfh)
+                      (io/make-parents "/tmp/foo/000002/subfolder/<-")
+                      (io/make-parents "/tmp/foo/000003/subfolder/<-")
+                      (cfh/cleanup-generations cfh)
+                      (let [current-paths (sorted-subpaths-of "/tmp/foo")]
+                        (is (= true (contains-path? current-paths "/tmp/foo/000000/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000001/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000002/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000003/subfolder"))))
+                      (is (= "/tmp/foo/000001/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :read)))
+                      (is (= "/tmp/foo/000003/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :write)))))))
+
+(deftest ^:unit test-should-cleanup-generations
+  (testing "should not cleanup if no generations to cleanup are configured"
+    (is (= false (hdfsgens/should-cleanup-generations nil "/some/path/{GENERATION}/with/generations"))))
+  (testing "should not cleanup if no generation placeholder is part of the path"
+    (is (= false (hdfsgens/should-cleanup-generations 2 "/some/path/with/generations"))))
+  (testing "should cleanup if generation placeholder is part of the path and nr of generations to keep is configured"
+    (is (= true (hdfsgens/should-cleanup-generations 2 "/some/path/{GENERATION}/with/generations")))))
+
 (deftest ^:unit test-hdfs-generation-injection
   (u/with-started [started (ts/test-system {:test-data-toplevel-path "/tmp/foo/{GENERATION}/subfolder"})]
                   (let [cfh (:cachefile-handler started)]
@@ -99,7 +170,6 @@
     (is (= "000000" (as-generation-string 9999999))))
   (testing "should-return generation string with 6 digits again-again-again"
     (is (= "000000" (as-generation-string -1)))))
-
 
 (def is-generation? #'hdfsgens/is-generation?)
 (deftest test-generation-check

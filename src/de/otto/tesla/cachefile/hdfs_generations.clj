@@ -1,5 +1,6 @@
 (ns de.otto.tesla.cachefile.hdfs-generations
-  (:require [hdfs.core :as hdfs]))
+  (:require [hdfs.core :as hdfs]
+            [clojure.tools.logging :as log]))
 
 (defn- generation-val-in-range [generation-as-int]
   (if (and
@@ -41,8 +42,11 @@
 (defn- inject-generation [file-path generation]
   (clojure.string/replace file-path GENERATION generation))
 
+(defn- success-file-present-for-path [file-path]
+  (hdfs/exists? (str file-path "/_SUCCESS")))
+
 (defn- success-file-present-for-generation [file-path current-generation]
-  (hdfs/exists? (str (inject-generation file-path current-generation) "/_SUCCESS")))
+  (success-file-present-for-path (inject-generation file-path current-generation)))
 
 (defn- latest-with-success-file [file-path all-generations]
   (loop [generations (reverse all-generations)]
@@ -76,8 +80,27 @@
              (inject-generation path))
     path))
 
+(defn- paths-to-delete [all-paths nr-to-keep]
+  (let [success-paths (filter #(success-file-present-for-path %) all-paths)
+        nr-to-delete (- (count success-paths) nr-to-keep)]
+    (if (> nr-to-delete 0)
+      (take nr-to-delete success-paths))))
+
+(defn cleanup-generations [toplevel-path nr-to-keep]
+  (let [all-gens (all-generations (parentpath-of-generation-placeholder toplevel-path))
+        all-paths (map #(inject-generation toplevel-path %) all-gens)
+        paths-to-be-deleted (paths-to-delete all-paths nr-to-keep)]
+    (doseq [current-path paths-to-be-deleted]
+      (log/info "deleting path:" current-path)
+      (hdfs/delete current-path))
+    paths-to-be-deleted))
+
+(defn should-cleanup-generations [nr-gens-to-keep toplevel-path]
+  (and
+    (not (nil? nr-gens-to-keep))
+    (.contains toplevel-path GENERATION)))
+
 (defn inject-hdfs-generation [path read-or-write]
   (if (.contains path GENERATION)
     (replace-generation-placholder path read-or-write)
     path))
-

@@ -14,6 +14,14 @@ Add this to your project's dependencies:
 
 From version `0.0.5` tesla-cachefile needs version `0.1.4` or later of tesla-zookeeper-observer
 
+Version `0.1.2` changes: 
+   
+   * added the possibility to cleanup hdfs-generations: `(cleanup-generations [self])`.   
+     To make it work, you have to define a property called `your.name.nr.gens.to.keep` which 
+     specifies the number of generations with success-files to keep.   
+     The delete is executed for the path you have specified by `your.name.toplevel.path` with the corresponding generations injected
+     e.g. `hdfs://namenode:1234/foo/bar/000001/subfolder`
+   
 Version `0.1.0` has some major changes: 
    
    * a folder is now configured by the property `your.name.toplevel.path` (`{ZK_NAMENODE}` and `{GENERATION}` can be used)
@@ -37,12 +45,13 @@ Version `0.0.9` has some major changes:
 
 The module, if used within a system, can be accessed using this protocol:
 
-    (defprotocol CfAccess
-      (read-cache-file [self filename read-fn])
-      (slurp-cache-file [self filename])   
-      (write-cache-file [self filename lines])
-      (write-success-file [self])
-      (cache-file-exists [self filename]))
+        (defprotocol CfAccess
+          (cleanup-generations [self])
+          (read-cache-file [self filename read-fn])
+          (slurp-cache-file [self filename])
+          (write-cache-file [self filename lines])
+          (write-success-file [self])
+          (cache-file-exists [self filename]))
   
 
 ### Local cachefile
