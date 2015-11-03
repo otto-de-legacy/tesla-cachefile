@@ -15,7 +15,7 @@
   (not (nil? (get set-of-paths path-to-check))))
 
 (deftest ^:unit test-hdfs-generation-cleanup-logic
-  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep 2
+  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep "2"
                                             :test-data-toplevel-path   "/tmp/foo/{GENERATION}/subfolder"})]
                   (let [cfh (:cachefile-handler started)]
                     (testing "should keep 2 successful generations after cleanup"
@@ -34,7 +34,7 @@
                       (is (= "/tmp/foo/000004/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :write)))))))
 
 (deftest ^:unit test-hdfs-generation-cleanup-logic-nothing-left
-  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep 0
+  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep "0"
                                             :test-data-toplevel-path   "/tmp/foo/{GENERATION}"})]
                   (let [cfh (:cachefile-handler started)]
                     (testing "should keep 0 generations, this doesn't really make sense, but works"
@@ -53,7 +53,7 @@
                       (is (= "/tmp/foo/000000/foo.bar" (cfh/build-file-path cfh "foo.bar" :write)))))))
 
 (deftest ^:unit test-hdfs-generation-cleanup-logic-keep-empty-folders
-  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep 2
+  (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep "2"
                                             :test-data-toplevel-path   "/tmp/foo/{GENERATION}/subfolder"})]
                   (let [cfh (:cachefile-handler started)]
                     (testing "should keep 0 generations, this doesn't really make sense, but works"

@@ -21,7 +21,8 @@
   (get-in config [:config (keyword (str which-data "-toplevel-path"))]))
 
 (defn- configured-nr-generations-to-keep [config which-data]
-  (get-in config [:config (keyword (str which-data "-nr-gens-to-keep"))]))
+  (if-let [gens-to-keep (get-in config [:config (keyword (str which-data "-nr-gens-to-keep"))])]
+    (Integer/parseInt gens-to-keep)))
 
 (defn- parse-hostname [zk-response]
   (when-not (nil? zk-response)
