@@ -34,11 +34,6 @@
          (filter is-generation?))
     []))
 
-(defn- latest-generation [all-generations]
-  (or
-    (last all-generations)
-    DEFAULT_GENERATION))
-
 (defn- inject-generation [file-path generation]
   (clojure.string/replace file-path GENERATION generation))
 
@@ -53,32 +48,28 @@
     (if-let [current-generation (first generations)]
       (if (success-file-present-for-generation file-path current-generation)
         current-generation
-        (recur (rest generations)))
-      DEFAULT_GENERATION)))
+        (recur (rest generations))))))
 
 (defn- increase-generation [latest-generation]
   (let [int-val (Integer/parseInt latest-generation)]
     (as-generation-string (inc int-val))))
 
-(defn- latest-if-success-file-absent-or-new [file-path all-generations]
-  (let [latest (latest-generation all-generations)]
-    (if-not (success-file-present-for-generation file-path latest)
-      latest
-      (increase-generation latest))))
+(defn- new-generation [all-generations]
+  (if-let [latest (last all-generations)]
+    (increase-generation latest)
+    DEFAULT_GENERATION))
 
 (defn- generation-for [file-path read-or-write all-generations]
   (case read-or-write
     :read (latest-with-success-file file-path all-generations)
-    :write (latest-if-success-file-absent-or-new file-path all-generations)))
+    :write (new-generation all-generations)))
 
 (defn- replace-generation-placholder [path read-or-write]
-  (or
     (some->> path
              (parentpath-of-generation-placeholder)
              (all-generations)
              (generation-for path read-or-write)
-             (inject-generation path))
-    path))
+             (inject-generation path)))
 
 (defn- paths-to-delete [all-paths nr-to-keep]
   (let [success-paths (filter #(success-file-present-for-path %) all-paths)

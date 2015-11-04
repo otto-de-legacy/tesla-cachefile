@@ -2,6 +2,7 @@
   (:require
     [com.stuartsierra.component :as c]
     [hdfs.core :as hdfs]
+    [de.otto.tesla.cachefile.hdfs-helpers :as helpers]
     [clojure.tools.logging :as log]
     [de.otto.tesla.cachefile.hdfs-generations :as hdfsgens]
     [de.otto.tesla.zk.zk-observer :as zk])
@@ -9,13 +10,11 @@
 
 (def ZK_NAMENODE_PLACEHOLDER "{ZK_NAMENODE}")
 
-(defprotocol CfAccess
-  (cleanup-generations [self])
-  (read-cache-file [self filename read-fn])
-  (slurp-cache-file [self filename])
-  (write-cache-file [self filename lines])
-  (write-success-file [self])
-  (cache-file-exists [self filename]))
+(defprotocol GenerationHandling
+  (folder-to-write-to [self] "Creates new generation directory and returns the path.")
+  (folder-to-read-from [self] "Finds newest generation wit a success file and returns the path.")
+  (write-success-file [self path] "Creates a file named _SUCCESS in the given , which is a marker for the other functions of this protocol")
+  (cleanup-generations [self] "Determines n last successful generations and deletes any older generation."))
 
 (defn- configured-toplevel-path [config which-data]
   (get-in config [:config (keyword (str which-data "-toplevel-path"))]))
@@ -46,10 +45,9 @@
   (some-> toplevel-path
           (inject-current-namenode zookeeper)))
 
-(defn build-file-path [self file-name read-or-write]
-  (let [tl-path (some-> (build-toplevel-path self)
-                        (hdfsgens/inject-hdfs-generation read-or-write))]
-    (format "%s/%s" tl-path file-name)))
+(defn build-folder-path [self read-or-write]
+  (some-> (build-toplevel-path self)
+          (hdfsgens/inject-hdfs-generation read-or-write)))
 
 (defrecord CacheFileHandler [which-data zookeeper config toplevel-path nr-gens-to-keep]
   c/Lifecycle
@@ -63,30 +61,19 @@
     (log/info "<- stopping " which-data "-cache-file-handler")
     self)
 
-  CfAccess
-  (write-cache-file [self filename lines]
-    (let [file-path (build-file-path self filename :write)]
-      (hdfs/make-parents file-path)
-      (hdfs/write-lines file-path lines)))
+  GenerationHandling
+  (folder-to-write-to [self]
+    (build-folder-path self :write))
 
-  (write-success-file [self]
-    (write-cache-file self "_SUCCESS" [""]))
+  (folder-to-read-from [self]
+    (build-folder-path self :read))
 
-  (slurp-cache-file [self filename]
-    (read-cache-file self filename #(clojure.string/join \newline (line-seq %))))
-
-  (read-cache-file [self filename read-fn]
-    (with-open [rdr (hdfs/buffered-reader (build-file-path self filename :read))]
-      (read-fn rdr)))
+  (write-success-file [_ path]
+    (helpers/write-file (str path "/_SUCCESS") [""]))
 
   (cleanup-generations [self]
     (if (hdfsgens/should-cleanup-generations nr-gens-to-keep toplevel-path)
-      (hdfsgens/cleanup-generations (build-toplevel-path self) nr-gens-to-keep)))
-
-  (cache-file-exists [self filename]
-    (if-let [file-path (build-file-path self filename :read)]
-      (hdfs/exists? file-path)
-      false)))
+      (hdfsgens/cleanup-generations (build-toplevel-path self) nr-gens-to-keep))))
 
 (defn new-cachefile-handler
   ([which-data] (map->CacheFileHandler {:which-data which-data})))

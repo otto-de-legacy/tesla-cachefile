@@ -14,6 +14,10 @@ Add this to your project's dependencies:
 
 From version `0.0.5` tesla-cachefile needs version `0.1.4` or later of tesla-zookeeper-observer
 
+
+Version `0.2.0` changes:
+   * Complete redesign of the API. The Filesystem is now treated as an immutable resource.
+
 Version `0.1.2` changes: 
    
    * added the possibility to cleanup hdfs-generations: `(cleanup-generations [self])`.   
@@ -45,15 +49,13 @@ Version `0.0.9` has some major changes:
 
 The module, if used within a system, can be accessed using this protocol:
 
-        (defprotocol CfAccess
-          (cleanup-generations [self])
-          (read-cache-file [self filename read-fn])
-          (slurp-cache-file [self filename])
-          (write-cache-file [self filename lines])
-          (write-success-file [self])
-          (cache-file-exists [self filename]))
-  
-
+            (defprotocol GenerationHandling
+              (folder-to-write-to [self] "Creates new generation directory and returns the path.")
+              (folder-to-read-from [self] "Finds newest generation wit a success file and returns the path.")
+              (write-success-file [self path] "Creates a file named _SUCCESS in the given , which is a marker for the other functions of this protocol")
+              (cleanup-generations [self] "Determines n last successful generations and deletes any older generation."))
+              
+              
 ### Local cachefile
 Add `your.name.toplevel.path` to your properties pointing to e.g. `/tmp/yourfolder`  
 `your.name` is defined when adding the CacheFileHandler to your system:

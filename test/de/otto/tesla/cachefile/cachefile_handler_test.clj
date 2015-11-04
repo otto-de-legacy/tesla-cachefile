@@ -3,7 +3,8 @@
             [de.otto.tesla.cachefile.cachefile-handler :as cfh]
             [clojure.java.io :as io]
             [de.otto.tesla.cachefile.test-system :as ts]
-            [de.otto.tesla.util.test-utils :as u])
+            [de.otto.tesla.util.test-utils :as u]
+            [de.otto.tesla.cachefile.hdfs-helpers :as hlps])
   (:import (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)
            (org.apache.hadoop.fs FileUtil)
            (java.io File)))
@@ -15,61 +16,18 @@
   (testing "should return keyword with file type as postfix"
     (is (= "foo-bar" (configured-toplevel-path {:config {:-toplevel-path "foo-bar"}} "")))))
 
-(deftest ^:unit check-the-existence-of-files
-  (let [toplevel-path "/tmp/subfolder"
-        test-file "/tmp/subfolder/foo.bar"]
-    (u/with-started [started (ts/test-system {:test-data-toplevel-path toplevel-path})]
-                    (let [cfh (:cachefile-handler started)]
-                      (testing "check if local file exists"
-                        (io/make-parents test-file)
-                        (spit test-file "a")
-                        (is (= true (cfh/cache-file-exists cfh "foo.bar"))))
-                      (testing "check if local file does not exist"
-                        (.delete (io/file test-file))
-                        (is (= false (cfh/cache-file-exists cfh "foo.bar"))))))))
-
-(deftest ^:unit if-cache-file-isnot-defined-it-should-not-exist
-  (u/with-started [started (ts/test-system {})]
-                  (let [cf-handler (:cachefile-handler started)]
-                    (is (= false (cfh/cache-file-exists cf-handler "foo.bar"))))))
-
-(deftest ^:unit check-reading-the-content-of-files
-  (let [toplevel-path "/tmp/subfolder"
-        test-file "/tmp/subfolder/foo.bar"
-        crc-file "/tmp/subfolder/.foo.bar.crc"]
-    (u/with-started [started (ts/test-system {:test-data-toplevel-path toplevel-path})]
-                    (let [cfh (:cachefile-handler started)]
-                      (testing "reading content from a local file"
-                        (.delete (io/file test-file))
-                        (.delete (io/file crc-file))
-                        (io/make-parents test-file)
-                        (spit test-file "somevalue=foo")
-                        (is (= "somevalue=foo" (cfh/slurp-cache-file cfh "foo.bar"))))))))
-
-(deftest ^:unit check-writing-files
-  (let [toplevel-path "/tmp/subfolder"
-        file-path "/tmp/subfolder/foo.bar"
-        crc-file "/tmp/subfolder/.foo.bar.crc"]
-    (u/with-started [started (ts/test-system {:test-data-toplevel-path toplevel-path})]
-                    (let [cfh (:cachefile-handler started)]
-                      (testing "writing a local file"
-                        (.delete (io/file file-path))
-                        (.delete (io/file crc-file))
-                        (cfh/write-cache-file cfh "foo.bar" ["some-content"])
-                        (is (= "some-content" (cfh/slurp-cache-file cfh "foo.bar"))))))))
-
 (deftest ^:unit test-success-files
   (let [toplevel-path "/tmp/subfolder"
-        file-path "/tmp/subfolder/_SUCCESS"
+        success-file "/tmp/subfolder/_SUCCESS"
         crc-file "/tmp/subfolder/._SUCCESS.crc"]
     (u/with-started [started (ts/test-system {:test-data-toplevel-path toplevel-path})]
                     (let [cfh (:cachefile-handler started)]
                       (testing "reading content from a local file"
-                        (.delete (io/file file-path))
+                        (.delete (io/file success-file))
                         (.delete (io/file crc-file))
-                        (is (= false (.exists (io/file file-path))))
-                        (cfh/write-success-file cfh)
-                        (is (= true (.exists (io/file file-path)))))))))
+                        (is (= false (.exists (io/file success-file))))
+                        (cfh/write-success-file cfh toplevel-path)
+                        (is (= true (.exists (io/file success-file)))))))))
 
 (deftest ^:unit check-writing-files-with-latest-generation
   (let [toplevel-path "/tmp/foo/{GENERATION}/subfolder"]
@@ -77,13 +35,16 @@
                     (let [cfh (:cachefile-handler started)]
                       (testing "should write a local file to a generation path"
                         (FileUtil/fullyDelete (File. "/tmp/foo"))
-                        (is (= "/tmp/foo/000000/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :read)))
-                        (is (= "/tmp/foo/000000/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :write)))
-                        (cfh/write-cache-file cfh "foo.bar" ["some-content" "more-content"])
-                        (cfh/write-success-file cfh)
-                        (is (= "/tmp/foo/000000/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :read)))
-                        (is (= "/tmp/foo/000001/subfolder/foo.bar" (cfh/build-file-path cfh "foo.bar" :write)))
-                        (is (= ["some-content" "more-content"] (cfh/read-cache-file cfh "foo.bar" #(into [] (line-seq %))))))))))
+                        (is (= nil (cfh/folder-to-read-from cfh)))
+                        (let [generation-to-write-to (cfh/folder-to-write-to cfh)
+                              a-file-path (str generation-to-write-to "foo.bar")]
+                          (is (= "/tmp/foo/000000/subfolder" generation-to-write-to))
+                          (hlps/write-file a-file-path ["some-content" "more-content"])
+                          (is (= ["some-content" "more-content"]
+                                 (hlps/read-file a-file-path #(into [] (line-seq %)))))
+                          (cfh/write-success-file cfh generation-to-write-to))
+                        (is (= "/tmp/foo/000001/subfolder" (cfh/folder-to-write-to cfh)))
+                        (is (= "/tmp/foo/000000/subfolder" (cfh/folder-to-read-from cfh))))))))
 
 (def parse-hostname #'cfh/parse-hostname)
 (deftest ^:unit parse-zk-response
@@ -106,9 +67,9 @@
       (u/with-started [started (ts/test-system {:test-data-toplevel-path toplevel-path})]
                       (let [cfh (:cachefile-handler started)]
                         (testing "check if zookeeper-namenode gets injected"
-                          (is (= "hdfs://first_namenode/foo/bar/foo.bar" (cfh/build-file-path cfh "foo.bar" :read)))
-                          (is (= "hdfs://first_namenode/foo/bar/foo.bar" (cfh/build-file-path cfh "foo.bar" :write))))
+                          (is (= "hdfs://first_namenode/foo/bar" (cfh/folder-to-read-from cfh)))
+                          (is (= "hdfs://first_namenode/foo/bar" (cfh/folder-to-write-to cfh))))
                         (reset! namenode "second_namenode")
                         (testing "check if zookeeper-namenode gets injected with fresh value"
-                          (is (= "hdfs://second_namenode/foo/bar/foo.bar" (cfh/build-file-path cfh "foo.bar" :read)))
-                          (is (= "hdfs://second_namenode/foo/bar/foo.bar" (cfh/build-file-path cfh "foo.bar" :write)))))))))
+                          (is (= "hdfs://second_namenode/foo/bar" (cfh/folder-to-read-from cfh)))
+                          (is (= "hdfs://second_namenode/foo/bar" (cfh/folder-to-write-to cfh)))))))))
