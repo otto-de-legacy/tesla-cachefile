@@ -21,7 +21,6 @@
     (hlps/write-file target-file [""])
     (cfh/write-success-file cfh target-folder)))
 
-
 (deftest ^:unit test-hdfs-generation-cleanup-logic
   (u/with-started [started (ts/test-system {:test-data-nr-gens-to-keep "2"
                                             :test-data-toplevel-path   "/tmp/foo/{GENERATION}/subfolder"})]
@@ -73,18 +72,27 @@
                   (let [cfh (:cachefile-handler started)]
                     (testing "should keep 0 generations, this doesn't really make sense, but works"
                       (FileUtil/fullyDelete (File. "/tmp/foo"))
+                      (io/make-parents "/tmp/foo/000000/subfolder/<-")
+                      (io/make-parents "/tmp/foo/000001/subfolder/<-")
                       (write-to-next-gen-and-mark-success cfh)
                       (write-to-next-gen-and-mark-success cfh)
-                      (io/make-parents "/tmp/foo/000002/subfolder/<-")
-                      (io/make-parents "/tmp/foo/000003/subfolder/<-")
+                      (write-to-next-gen-and-mark-success cfh)
+                      (write-to-next-gen-and-mark-success cfh)
+                      (io/make-parents "/tmp/foo/000006/subfolder/<-")
+                      (io/make-parents "/tmp/foo/000007/subfolder/<-")
                       (cfh/cleanup-generations cfh)
                       (let [current-paths (sorted-subpaths-of "/tmp/foo")]
-                        (is (= true (contains-path? current-paths "/tmp/foo/000000/subfolder")))
-                        (is (= true (contains-path? current-paths "/tmp/foo/000001/subfolder")))
-                        (is (= true (contains-path? current-paths "/tmp/foo/000002/subfolder")))
-                        (is (= true (contains-path? current-paths "/tmp/foo/000003/subfolder"))))
-                      (is (= "/tmp/foo/000001/subfolder" (cfh/folder-to-read-from cfh)))
-                      (is (= "/tmp/foo/000004/subfolder" (cfh/folder-to-write-to cfh )))))))
+                        (is (= false (contains-path? current-paths "/tmp/foo/000000/subfolder")))
+                        (is (= false (contains-path? current-paths "/tmp/foo/000001/subfolder")))
+                        (is (= false (contains-path? current-paths "/tmp/foo/000002/subfolder")))
+                        (is (= false (contains-path? current-paths "/tmp/foo/000003/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000004/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000005/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000006/subfolder")))
+                        (is (= true (contains-path? current-paths "/tmp/foo/000007/subfolder"))))
+                      (is (= "/tmp/foo/000005/subfolder" (cfh/folder-to-read-from cfh)))
+                      (is (= "/tmp/foo/000008/subfolder" (cfh/folder-to-write-to cfh)))))))
+
 
 (deftest ^:unit test-should-cleanup-generations
   (testing "should not cleanup if no generations to cleanup are configured"

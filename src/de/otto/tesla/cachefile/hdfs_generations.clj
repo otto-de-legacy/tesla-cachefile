@@ -65,26 +65,34 @@
     :write (new-generation all-generations)))
 
 (defn- replace-generation-placholder [path read-or-write]
-    (some->> path
-             (parentpath-of-generation-placeholder)
-             (all-generations)
-             (generation-for path read-or-write)
-             (inject-generation path)))
+  (some->> path
+           (parentpath-of-generation-placeholder)
+           (all-generations)
+           (generation-for path read-or-write)
+           (inject-generation path)))
 
-(defn- paths-to-delete [all-paths nr-to-keep]
-  (let [success-paths (filter #(success-file-present-for-path %) all-paths)
-        nr-to-delete (- (count success-paths) nr-to-keep)]
-    (if (> nr-to-delete 0)
-      (take nr-to-delete success-paths))))
+(defn still-keeping-things [kept nr-to-keep]
+  (not (= kept nr-to-keep)))
+
+(defn delete [path]
+  (log/info "deleting path:" path)
+  (hdfs/delete path))
+
+(defn all-generation-paths-sorted [toplevel-path]
+  (let [all-gens (all-generations (parentpath-of-generation-placeholder toplevel-path))]
+    (map #(inject-generation toplevel-path %) (reverse (sort all-gens)))))
 
 (defn cleanup-generations [toplevel-path nr-to-keep]
-  (let [all-gens (all-generations (parentpath-of-generation-placeholder toplevel-path))
-        all-paths (map #(inject-generation toplevel-path %) all-gens)
-        paths-to-be-deleted (paths-to-delete all-paths nr-to-keep)]
-    (doseq [current-path paths-to-be-deleted]
-      (log/info "deleting path:" current-path)
-      (hdfs/delete current-path))
-    paths-to-be-deleted))
+  (loop [all-paths (all-generation-paths-sorted toplevel-path)
+         kept 0]
+    (when-let [current-path (first all-paths)]
+      (if (still-keeping-things kept nr-to-keep)
+        (if (success-file-present-for-path current-path)
+          (recur (rest all-paths) (inc kept))
+          (recur (rest all-paths) kept))
+        (do
+          (delete current-path)
+          (recur (rest all-paths) kept))))))
 
 (defn should-cleanup-generations [nr-gens-to-keep toplevel-path]
   (and
