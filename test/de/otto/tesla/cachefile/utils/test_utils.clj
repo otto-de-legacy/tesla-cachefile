@@ -1,6 +1,10 @@
-(ns de.otto.tesla.util.test-utils
+(ns de.otto.tesla.cachefile.utils.test-utils
   (:require [clojure.test :refer :all]
-            [com.stuartsierra.component :as comp]))
+            [com.stuartsierra.component :as comp]
+            [de.otto.tesla.cachefile.cachefile-handler :as cfh]
+            [com.stuartsierra.component :as c]
+            [de.otto.tesla.zk.zk-observer :as zk]
+            [de.otto.tesla.system :as system]))
 
 (defmacro with-started
   "bindings => [name init ...]
@@ -23,3 +27,9 @@
                      "with-started-system only allows Symbols in bindings")))
     (throw (IllegalArgumentException.
              "not a vector or bindings-count is not even"))))
+
+(defn test-system [runtime-conf]
+  (-> (system/base-system runtime-conf)
+      (assoc :zookeeper (c/using (zk/new-zkobserver) [:config]))
+      (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler "test-data") [:config :zookeeper]))))
+

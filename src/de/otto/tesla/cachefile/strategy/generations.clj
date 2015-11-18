@@ -1,4 +1,4 @@
-(ns de.otto.tesla.cachefile.hdfs-generations
+(ns de.otto.tesla.cachefile.strategy.generations
   (:require [hdfs.core :as hdfs]
             [clojure.tools.logging :as log]))
 
@@ -71,18 +71,18 @@
            (generation-for path read-or-write)
            (inject-generation path)))
 
-(defn still-keeping-things [kept nr-to-keep]
+(defn- still-keeping-things [kept nr-to-keep]
   (not (= kept nr-to-keep)))
 
-(defn delete [path]
+(defn- delete [path]
   (log/info "deleting path:" path)
   (hdfs/delete path))
 
-(defn all-generation-paths-sorted [toplevel-path]
+(defn- all-generation-paths-sorted [toplevel-path]
   (let [all-gens (all-generations (parentpath-of-generation-placeholder toplevel-path))]
     (map #(inject-generation toplevel-path %) (reverse (sort all-gens)))))
 
-(defn cleanup-generations [toplevel-path nr-to-keep]
+(defn cleanup-generations! [toplevel-path nr-to-keep]
   (loop [all-paths (all-generation-paths-sorted toplevel-path)
          kept 0]
     (when-let [current-path (first all-paths)]
@@ -94,12 +94,12 @@
           (delete current-path)
           (recur (rest all-paths) kept))))))
 
-(defn should-cleanup-generations [nr-gens-to-keep toplevel-path]
+(defn should-cleanup-generations? [nr-gens-to-keep toplevel-path]
   (and
     (not (nil? nr-gens-to-keep))
     (.contains toplevel-path GENERATION)))
 
-(defn inject-hdfs-generation [path read-or-write]
+(defn with-hdfs-generation [path read-or-write]
   (if (.contains path GENERATION)
     (replace-generation-placholder path read-or-write)
     path))

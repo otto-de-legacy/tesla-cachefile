@@ -1,8 +1,6 @@
-(ns de.otto.tesla.cachefile.hdfs-helpers-test
+(ns de.otto.tesla.cachefile.utils.hdfs-helpers-test
   (:require [clojure.test :refer :all]
-            [de.otto.tesla.cachefile.hdfs-helpers :as hlps]
-            [de.otto.tesla.util.test-utils :as u]
-            [de.otto.tesla.cachefile.test-system :as ts]
+            [de.otto.tesla.cachefile.utils.hdfs-helpers :as hlps]
             [clojure.java.io :as io]))
 
 (deftest ^:unit check-the-existence-of-files

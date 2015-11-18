@@ -12,8 +12,11 @@ Add this to your project's dependencies:
 
 [![Clojars Project](http://clojars.org/de.otto/tesla-cachefile/latest-version.svg)](http://clojars.org/de.otto/tesla-cachefile)
 
-From version `0.0.5` tesla-cachefile needs version `0.1.4` or later of tesla-zookeeper-observer
+## Changelog
 
+Version `0.3.0` changes:
+   * Refactoring of repo-structure
+   * Added a historization-strategy, which is used by the new `file-historizer` component
 
 Version `0.2.0` changes:
    * Complete redesign of the API. The Filesystem is now treated as an immutable resource.
@@ -47,15 +50,16 @@ Version `0.0.9` has some major changes:
      write to the latest generation if cache-file absent or otherwise to a new generation
    * uses [hdfs-clj "0.1.15"]
 
-The module, if used within a system, can be accessed using this protocol:
+
+## Cachefile-Handler component
+The component, if used within a system, can be accessed using this protocol:
 
             (defprotocol GenerationHandling
               (folder-to-write-to [self] "Creates new generation directory and returns the path.")
               (folder-to-read-from [self] "Finds newest generation wit a success file and returns the path.")
               (write-success-file [self path] "Creates a file named _SUCCESS in the given , which is a marker for the other functions of this protocol")
               (cleanup-generations [self] "Determines n last successful generations and deletes any older generation."))
-              
-              
+
 ### Local cachefile
 Add `your.name.toplevel.path` to your properties pointing to e.g. `/tmp/yourfolder`  
 `your.name` is defined when adding the CacheFileHandler to your system:
@@ -72,6 +76,27 @@ Add `your.name.toplevel.path` to your properties pointing to e.g. `hdfs://nameno
 Add `your.name.toplevel.path` to your properties pointing to e.g. `hdfs://{ZK_NAMENODE}/some/folder`
 Add `zookeeper.connect` to your properties containing a valid zookeeper connection string.
 The module is currently looking for a namenode-string at a zk-node called `/hadoop-ha/hadoop-ha/ActiveBreadCrumb`.
+
+
+## File-Historizer component
+The component, if used within a system, can be accessed using this protocol:
+
+        (defprotocol HistorizationHandling
+          (writer-for-timestamp [self timestamp] "Returns a PrintWriter-instance for the given timestamp (see Historization)"))
+
+### Historization            
+A new PrintWriter is returned for every new hour.
+This leads to the following fs-structure:
+
+        └── output
+            └── 2015
+                └── 11
+                    └── 13
+                        └── 13
+                        |   └── a2586bd5-2636-4130-1fef-cd35af8e433k.hist
+                        └── 14
+                            └── c7586bd8-2636-4130-9fef-cd35af8e433f.hist
+
 
 ## Initial Contributors
 

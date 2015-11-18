@@ -2,25 +2,18 @@
   (:require [clojure.test :refer :all]
             [de.otto.tesla.cachefile.cachefile-handler :as cfh]
             [clojure.java.io :as io]
-            [de.otto.tesla.cachefile.test-system :as ts]
-            [de.otto.tesla.util.test-utils :as u]
-            [de.otto.tesla.cachefile.hdfs-helpers :as hlps])
+            [de.otto.tesla.cachefile.utils.zk-namenode :as zknn]
+            [de.otto.tesla.cachefile.utils.test-utils :as u]
+            [de.otto.tesla.cachefile.utils.hdfs-helpers :as hlps])
   (:import (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)
            (org.apache.hadoop.fs FileUtil)
            (java.io File)))
-
-(def configured-toplevel-path #'cfh/configured-toplevel-path)
-(deftest ^:unit check-for-toplevel-path
-  (testing "should return keyword without postfix if file type is missing"
-    (is (= "foo-bar" (configured-toplevel-path {:config {:test-data-toplevel-path "foo-bar"}} "test-data"))))
-  (testing "should return keyword with file type as postfix"
-    (is (= "foo-bar" (configured-toplevel-path {:config {:-toplevel-path "foo-bar"}} "")))))
 
 (deftest ^:unit test-success-files
   (let [toplevel-path "/tmp/subfolder"
         success-file "/tmp/subfolder/_SUCCESS"
         crc-file "/tmp/subfolder/._SUCCESS.crc"]
-    (u/with-started [started (ts/test-system {:test-data-toplevel-path toplevel-path})]
+    (u/with-started [started (u/test-system {:test-data-toplevel-path toplevel-path})]
                     (let [cfh (:cachefile-handler started)]
                       (testing "reading content from a local file"
                         (.delete (io/file success-file))
@@ -31,7 +24,7 @@
 
 (deftest ^:unit check-writing-files-with-latest-generation
   (let [toplevel-path "/tmp/foo/{GENERATION}/subfolder"]
-    (u/with-started [started (ts/test-system {:test-data-toplevel-path toplevel-path})]
+    (u/with-started [started (u/test-system {:test-data-toplevel-path toplevel-path})]
                     (let [cfh (:cachefile-handler started)]
                       (testing "should write a local file to a generation path"
                         (FileUtil/fullyDelete (File. "/tmp/foo"))
@@ -46,7 +39,7 @@
                         (is (= "/tmp/foo/000001/subfolder" (cfh/folder-to-write-to cfh)))
                         (is (= "/tmp/foo/000000/subfolder" (cfh/folder-to-read-from cfh))))))))
 
-(def parse-hostname #'cfh/parse-hostname)
+(def parse-hostname #'zknn/parse-hostname)
 (deftest ^:unit parse-zk-response
   (testing "should extract the hostname from a valid zk-response"
     (let [a-zk-response (-> (HAZKInfoProtos$ActiveNodeInfo/newBuilder)
@@ -63,8 +56,8 @@
 (deftest ^:unit test-namenode-injection
   (let [toplevel-path "hdfs://{ZK_NAMENODE}/foo/bar"
         namenode (atom "first_namenode")]
-    (with-redefs [cfh/namenode-from-zookeeper (fn [_] @namenode)]
-      (u/with-started [started (ts/test-system {:test-data-toplevel-path toplevel-path})]
+    (with-redefs [zknn/namenode-from-zookeeper (fn [_] @namenode)]
+      (u/with-started [started (u/test-system {:test-data-toplevel-path toplevel-path})]
                       (let [cfh (:cachefile-handler started)]
                         (testing "check if zookeeper-namenode gets injected"
                           (is (= "hdfs://first_namenode/foo/bar" (cfh/folder-to-read-from cfh)))

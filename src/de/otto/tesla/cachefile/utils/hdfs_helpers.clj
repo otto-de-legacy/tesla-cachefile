@@ -1,6 +1,5 @@
-(ns de.otto.tesla.cachefile.hdfs-helpers
+(ns de.otto.tesla.cachefile.utils.hdfs-helpers
   (:require [hdfs.core :as hdfs]))
-
 
 (defn write-file [path lines]
             (hdfs/make-parents path)
