@@ -24,7 +24,7 @@
 (deftest creating-the-ouput-path
   (with-redefs [hist/unique-id (constantly "a-unique-id")]
     (testing "should create an output-path with a unique file-name"
-      (is (= "output/path/2015/1/17/10/a-unique-id.hist"
+      (is (= "output/path/2015/1/17/10/a-unique-id.hist.gz"
              (output-file-path "output/path" {:year  2015
                                               :month 1
                                               :day   17
@@ -59,7 +59,7 @@
                   hist/unique-id (constantly "unique-id")
                   hist/new-print-writer (constantly "WRITER")]
       (let [writers-map (atom {})
-            expected-writer {:file-path   "some-path/2015/11/17/9/unique-id.hist"
+            expected-writer {:file-path   "some-path/2015/11/17/9/unique-id.hist.gz"
                              :last-access 999
                              :writer      "WRITER"}]
         (is (= expected-writer
@@ -152,4 +152,3 @@
         (is (= {:closed  ["WRITER-A" "WRITER-B"]
                 :flushed ["WRITER-A" "WRITER-B"]}
                @closed-writers))))))
-

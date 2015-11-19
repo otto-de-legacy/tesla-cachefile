@@ -14,6 +14,10 @@ Add this to your project's dependencies:
 
 ## Changelog
 
+Version `0.3.2` changes:
+   * historization-strategy creates gzipped files
+
+
 Version `0.3.0` changes:
    * Refactoring of repo-structure
    * Added a historization-strategy, which is used by the new `file-historizer` component
@@ -93,9 +97,9 @@ This leads to the following fs-structure:
                 └── 11
                     └── 13
                         └── 13
-                        |   └── a2586bd5-2636-4130-1fef-cd35af8e433k.hist
+                        |   └── a2586bd5-2636-4130-1fef-cd35af8e433k.hist.gz
                         └── 14
-                            └── c7586bd8-2636-4130-9fef-cd35af8e433f.hist
+                            └── c7586bd8-2636-4130-9fef-cd35af8e433f.hist.gz
 
 
 ## Initial Contributors
