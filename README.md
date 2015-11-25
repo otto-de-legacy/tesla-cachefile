@@ -14,6 +14,10 @@ Add this to your project's dependencies:
 
 ## Changelog
 
+Version `0.3.3` changes:
+   * bugfix: history files were compressed twice
+
+
 Version `0.3.2` changes:
    * historization-strategy creates gzipped files
 
