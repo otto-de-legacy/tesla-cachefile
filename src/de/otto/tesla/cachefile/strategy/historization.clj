@@ -2,8 +2,7 @@
   (:require [hdfs.core :as hdfs])
   (:import (java.io PrintWriter)
            (org.joda.time DateTimeZone DateTime)
-           (java.util UUID)
-           (java.util.zip GZIPOutputStream)))
+           (java.util UUID)))
 
 (defn- ts->time-map [millis]
   (when millis
@@ -36,7 +35,7 @@
   (str output-path "/" year "/" month "/" day "/" hour "/" (unique-id) ".hist.gz"))
 
 (defn- new-print-writer ^PrintWriter [file-path]
-  (PrintWriter. (GZIPOutputStream. (hdfs/output-stream file-path))))
+  (PrintWriter. (hdfs/output-stream file-path)))
 
 (defn- create-new-writer [output-path the-time]
   (let [file-path (output-file-path output-path the-time)
