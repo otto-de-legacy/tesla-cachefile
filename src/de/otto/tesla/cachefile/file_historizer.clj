@@ -7,39 +7,39 @@
             [clojure.core.async :as async]
             [de.otto.tesla.cachefile.utils.reading-properties :as rpr]
             )
-  (:import (java.io PrintWriter)))
+  (:import (java.io BufferedWriter)))
 
 (defprotocol HistorizationHandling
-  (writer-for-timestamp [self timestamp] "Returns a PrintWriter-instance for the given timestamp (see historization strategy)")
-  (write-to-hdfs [self msg-map] "Writes to the HDFS, expects a map with timestamp and message {:ts :msg}")
-  )
+  (writer-for-timestamp [self timestamp] "Returns a BufferedWriter-instance for the given timestamp (see historization strategy)")
+  (write-to-hdfs [self msg-map] "Writes to the HDFS, expects a map with timestamp and message {:ts :msg}"))
 
-(defrecord FileHistorizer [config which-historizer zookeeper in-channel filter-fn]
+(defrecord FileHistorizer [config which-historizer zookeeper in-channel transform-or-nil-fn]
   c/Lifecycle
   (start [self]
-    (log/info "-> starting FileHistorizer")
-    (let [output-path (rpr/configured-toplevel-path config which-historizer)
-          executor (at/mk-pool)
-          max-writer-age (rpr/configured-max-writer-age config which-historizer)
-          schedule-closing-time (rpr/configured-schedule-closing-time config which-historizer)
+    (log/info "-> starting FileHistorizer " which-historizer)
+    (let [output-path (rpr/toplevel-path config which-historizer)
+          pool (at/mk-pool)
+          max-age (rpr/max-age config which-historizer)
+          close-interval (rpr/close-interval config which-historizer)
           dev-null (async/chan (async/dropping-buffer 1))
+          writers (atom {})
           new-self (assoc self
-                     :executor executor
+                     :pool pool
                      :output-path output-path
-                     :writers (atom {}))]
-      (assoc new-self
-        :schedule (at/every schedule-closing-time
-                            #(hist/close-old-writers! (:writers new-self) max-writer-age)
-                            executor))
-      (async/pipeline 1 dev-null (keep (partial write-to-hdfs new-self (keep (partial filter-fn)))) in-channel)
-      ))
+                     :writers writers
+                     :scheduler (at/every close-interval
+                                          #(hist/close-old-writers! writers max-age)
+                                          pool))]
+      (async/pipeline 1 dev-null (comp
+                                   (keep transform-or-nil-fn)
+                                   (map (partial write-to-hdfs new-self))) in-channel)
+      new-self))
 
-  (stop [{:keys [writers schedule executor] :as self}]
-    (log/info "<- stopping HdfsWriter")
+  (stop [{:keys [writers schedule pool] :as self}]
+    (log/info "<- stopping FileHistorizer")
     (hist/close-writers! writers)
-    (when schedule
-      (at/kill schedule))
-    (at/stop-and-reset-pool! executor)
+    (when schedule (at/kill schedule))
+    (at/stop-and-reset-pool! pool)
     self)
 
   HistorizationHandling
@@ -48,16 +48,17 @@
         (hist/lookup-writer-or-create! writers millis)
         :writer))
   (write-to-hdfs [self {:keys [ts msg]}]
-    (let [^PrintWriter writer (writer-for-timestamp self ts)]
-      (.println writer msg))
+    (let [^BufferedWriter writer (writer-for-timestamp self ts)]
+      (.write writer msg)
+      (.newLine writer))
     msg))
 
 (defn new-file-historizer
   ([which-historizer in-channel]
-  (map->FileHistorizer {:which-historizer which-historizer
-                        :in-channel in-channel
-                        :filter-fn identity}))
-  ([which-historizer in-channel filter-fn]
-   (map->FileHistorizer {:which-historizer which-historizer
-                         :in-channel in-channel
-                         :filter-fn filter-fn})))
+   (map->FileHistorizer {:which-historizer    which-historizer
+                         :in-channel          in-channel
+                         :transform-or-nil-fn identity}))
+  ([which-historizer in-channel transform-or-nil-fn]
+   (map->FileHistorizer {:which-historizer    which-historizer
+                         :in-channel          in-channel
+                         :transform-or-nil-fn transform-or-nil-fn})))

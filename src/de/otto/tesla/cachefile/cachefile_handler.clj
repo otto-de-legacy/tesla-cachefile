@@ -23,7 +23,7 @@
     (log/info "-> starting " which-data "-cache-file-handler")
     (assoc self
       :nr-gens-to-keep (rpr/configured-nr-generations-to-keep config which-data)
-      :toplevel-path (rpr/configured-toplevel-path config which-data)))
+      :toplevel-path (rpr/toplevel-path config which-data)))
 
   (stop [self]
     (log/info "<- stopping " which-data "-cache-file-handler")

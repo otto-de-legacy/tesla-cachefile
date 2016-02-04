@@ -4,9 +4,17 @@
             [de.otto.tesla.cachefile.cachefile-handler :as cfh]
             [clojure.java.io :as io]
             [de.otto.tesla.cachefile.utils.test-utils :as u]
-            [de.otto.tesla.cachefile.utils.hdfs-helpers :as hlps])
+            [de.otto.tesla.cachefile.utils.hdfs-helpers :as hlps]
+            [de.otto.tesla.system :as system]
+            [com.stuartsierra.component :as c]
+            [de.otto.tesla.zk.zk-observer :as zk])
   (:import (org.apache.hadoop.fs FileUtil)
            (java.io File)))
+
+(defn test-system [runtime-conf]
+  (-> (system/base-system runtime-conf)
+      (assoc :zookeeper (c/using (zk/new-zkobserver) [:config]))
+      (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler "test-data") [:config :zookeeper]))))
 
 (defn sorted-subpaths-of [path]
   (into #{} (sort (map #(.getPath %) (file-seq (File. path))))))
@@ -21,7 +29,7 @@
     (cfh/write-success-file cfh target-folder)))
 
 (deftest ^:unit test-hdfs-generation-cleanup-logic
-  (u/with-started [started (u/test-system {:test-data-nr-gens-to-keep "2"
+  (u/with-started [started (test-system {:test-data-nr-gens-to-keep "2"
                                             :test-data-toplevel-path   "/tmp/foo/{GENERATION}/subfolder"})]
                   (let [cfh (:cachefile-handler started)]
                     (testing "should keep 2 successful generations after cleanup"
@@ -47,7 +55,7 @@
                       (is (= "/tmp/foo/000004/subfolder" (cfh/folder-to-write-to cfh )))))))
 
 (deftest ^:unit test-hdfs-generation-cleanup-logic-nothing-left
-  (u/with-started [started (u/test-system {:test-data-nr-gens-to-keep "0"
+  (u/with-started [started (test-system {:test-data-nr-gens-to-keep "0"
                                             :test-data-toplevel-path   "/tmp/foo/{GENERATION}"})]
                   (let [cfh (:cachefile-handler started)]
                     (testing "should keep 0 generations, this doesn't really make sense, but works"
@@ -66,7 +74,7 @@
                       (is (= "/tmp/foo/000000" (cfh/folder-to-write-to cfh )))))))
 
 (deftest ^:unit test-hdfs-generation-cleanup-logic-keep-empty-folders
-  (u/with-started [started (u/test-system {:test-data-nr-gens-to-keep "2"
+  (u/with-started [started (test-system {:test-data-nr-gens-to-keep "2"
                                             :test-data-toplevel-path   "/tmp/foo/{GENERATION}/subfolder"})]
                   (let [cfh (:cachefile-handler started)]
                     (testing "should keep 0 generations, this doesn't really make sense, but works"
@@ -102,7 +110,7 @@
     (is (= true (gens/should-cleanup-generations? 2 "/some/path/{GENERATION}/with/generations")))))
 
 (deftest ^:unit test-hdfs-generation-injection
-  (u/with-started [started (u/test-system {:test-data-toplevel-path "/tmp/foo/{GENERATION}/subfolder"})]
+  (u/with-started [started (test-system {:test-data-toplevel-path "/tmp/foo/{GENERATION}/subfolder"})]
                   (let [cfh (:cachefile-handler started)]
                     (testing "should inject latest generation"
                       (FileUtil/fullyDelete (File. "/tmp/foo"))
@@ -118,7 +126,7 @@
 
 
 (deftest ^:unit test-hdfs-generation-injection-no-generation-present
-  (u/with-started [started (u/test-system {:test-data-toplevel-path "/tmp/foo/{GENERATION}/subfolder"})]
+  (u/with-started [started (test-system {:test-data-toplevel-path "/tmp/foo/{GENERATION}/subfolder"})]
                   (let [cfh (:cachefile-handler started)]
                     (testing "should inject latest generation"
                       (FileUtil/fullyDelete (File. "/tmp/foo"))

@@ -1,6 +1,6 @@
 (ns de.otto.tesla.cachefile.strategy.historization
   (:require [hdfs.core :as hdfs])
-  (:import (java.io PrintWriter)
+  (:import (java.io BufferedWriter OutputStreamWriter)
            (org.joda.time DateTimeZone DateTime)
            (java.util UUID)))
 
@@ -34,8 +34,8 @@
 (defn- output-file-path [output-path {:keys [year month day hour]}]
   (str output-path "/" year "/" month "/" day "/" hour "/" (unique-id) ".hist.gz"))
 
-(defn- new-print-writer ^PrintWriter [file-path]
-  (PrintWriter. (hdfs/output-stream file-path)))
+(defn- new-print-writer ^BufferedWriter [file-path]
+  (BufferedWriter. (OutputStreamWriter. (hdfs/output-stream file-path))))
 
 (defn- create-new-writer [output-path the-time]
   (let [file-path (output-file-path output-path the-time)
@@ -70,7 +70,7 @@
   (close-writers! writers (partial writer-too-old? max-writer-age)))
 
 (defn lookup-writer-or-create! [output-path writers millis]
-  (if-let [the-time (ts->time-map millis)]
+  (when-let [the-time (ts->time-map millis)]
     (or
       (load-and-update-existing-writer writers the-time)
       (create-and-store-new-writer output-path writers the-time))))

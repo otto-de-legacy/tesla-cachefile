@@ -4,16 +4,24 @@
             [clojure.java.io :as io]
             [de.otto.tesla.cachefile.utils.zk-namenode :as zknn]
             [de.otto.tesla.cachefile.utils.test-utils :as u]
-            [de.otto.tesla.cachefile.utils.hdfs-helpers :as hlps])
+            [de.otto.tesla.cachefile.utils.hdfs-helpers :as hlps]
+            [de.otto.tesla.system :as system]
+            [com.stuartsierra.component :as c]
+            [de.otto.tesla.zk.zk-observer :as zk])
   (:import (org.apache.hadoop.hdfs.server.namenode.ha.proto HAZKInfoProtos$ActiveNodeInfo)
            (org.apache.hadoop.fs FileUtil)
            (java.io File)))
+
+(defn test-system [runtime-conf]
+  (-> (system/base-system runtime-conf)
+      (assoc :zookeeper (c/using (zk/new-zkobserver) [:config]))
+      (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler "test-data") [:config :zookeeper]))))
 
 (deftest ^:unit test-success-files
   (let [toplevel-path "/tmp/subfolder"
         success-file "/tmp/subfolder/_SUCCESS"
         crc-file "/tmp/subfolder/._SUCCESS.crc"]
-    (u/with-started [started (u/test-system {:test-data-toplevel-path toplevel-path})]
+    (u/with-started [started (test-system {:test-data-toplevel-path toplevel-path})]
                     (let [cfh (:cachefile-handler started)]
                       (testing "reading content from a local file"
                         (.delete (io/file success-file))
@@ -24,7 +32,7 @@
 
 (deftest ^:unit check-writing-files-with-latest-generation
   (let [toplevel-path "/tmp/foo/{GENERATION}/subfolder"]
-    (u/with-started [started (u/test-system {:test-data-toplevel-path toplevel-path})]
+    (u/with-started [started (test-system {:test-data-toplevel-path toplevel-path})]
                     (let [cfh (:cachefile-handler started)]
                       (testing "should write a local file to a generation path"
                         (FileUtil/fullyDelete (File. "/tmp/foo"))
@@ -57,7 +65,7 @@
   (let [toplevel-path "hdfs://{ZK_NAMENODE}/foo/bar"
         namenode (atom "first_namenode")]
     (with-redefs [zknn/namenode-from-zookeeper (fn [_] @namenode)]
-      (u/with-started [started (u/test-system {:test-data-toplevel-path toplevel-path})]
+      (u/with-started [started (test-system {:test-data-toplevel-path toplevel-path})]
                       (let [cfh (:cachefile-handler started)]
                         (testing "check if zookeeper-namenode gets injected"
                           (is (= "hdfs://first_namenode/foo/bar" (cfh/folder-to-read-from cfh)))

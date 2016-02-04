@@ -2,9 +2,9 @@
   (:require [clojure.test :refer :all]
             [de.otto.tesla.cachefile.utils.reading-properties :as rpr]))
 
-(def configured-toplevel-path #'rpr/configured-toplevel-path)
-(def configured-max-writer-age #'rpr/configured-max-writer-age)
-(def configured-schedule-closing-time #'rpr/configured-schedule-closing-time)
+(def configured-toplevel-path #'rpr/toplevel-path)
+(def configured-max-writer-age #'rpr/max-age)
+(def configured-schedule-closing-time #'rpr/close-interval)
 
 (deftest ^:unit check-reading-properties
   (testing "should return keyword without postfix if file type is missing"

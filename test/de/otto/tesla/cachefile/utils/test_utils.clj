@@ -28,8 +28,5 @@
     (throw (IllegalArgumentException.
              "not a vector or bindings-count is not even"))))
 
-(defn test-system [runtime-conf]
-  (-> (system/base-system runtime-conf)
-      (assoc :zookeeper (c/using (zk/new-zkobserver) [:config]))
-      (assoc :cachefile-handler (c/using (cfh/new-cachefile-handler "test-data") [:config :zookeeper]))))
+
 
