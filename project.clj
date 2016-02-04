@@ -10,6 +10,7 @@
                  [de.otto/tesla-zookeeper-observer "0.1.5"]
                  [overtone/at-at "1.2.0"]
                  [org.slf4j/slf4j-api "1.7.12"]
+                 [org.clojure/core.async "0.2.374"]
                  [org.slf4j/jcl-over-slf4j "1.7.12"]
                  [org.apache.hadoop/hadoop-client "2.7.1"]
                  [hdfs-clj "0.1.15"]]
