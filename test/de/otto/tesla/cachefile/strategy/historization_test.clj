@@ -14,11 +14,11 @@
             :year  2015}
            (ts->time-map (.getMillis (DateTime. 2015 11 17 9 0))))))
   (testing "should extract the timestamp as 0"
-    (is (= {:hour  1
+    (is (= {:hour  0
             :day   1
             :month 1
             :year  1970}
-           (ts->time-map 0)))))
+           (ts->time-map (.getMillis (DateTime. 1970 1 1 0 0)))))))
 
 (def output-file-path #'hist/output-file-path)
 (deftest creating-the-ouput-path
