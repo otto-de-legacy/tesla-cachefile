@@ -6,7 +6,7 @@
 
 (defn- ts->time-map [millis]
   (when millis
-    (let [date-time (DateTime. millis (DateTimeZone/forID "Europe/Berlin"))]
+    (let [date-time (DateTime. millis (DateTimeZone/getDefault))]
       {:month (.getMonthOfYear date-time)
        :day   (.getDayOfMonth date-time)
        :year  (.getYear date-time)
