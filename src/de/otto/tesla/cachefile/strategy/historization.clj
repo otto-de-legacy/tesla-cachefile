@@ -60,10 +60,11 @@
       (assoc :last-access (current-time))
       (update :write-count inc)))
 
-(defn write-line! [{:keys [writer]} msg]
+(defn write-line! [{:keys [writer] :as writer-map} msg]
   (doto writer
     (.write msg)
-    (.newLine)))
+    (.newLine))
+  writer-map)
 
 (defn store-writer [{:keys [path] :as writer} writers]
   (swap! writers assoc-in path writer)
