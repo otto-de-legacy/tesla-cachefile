@@ -4,6 +4,7 @@
             [de.otto.tesla.cachefile.strategy.historization :as hist]
             [de.otto.tesla.cachefile.utils.zk-namenode :as zknn]
             [clojure.tools.logging :as log]
+            [de.otto.tesla.stateful.app-status :as apps]
             [clojure.core.async :as async]
             [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
   (:import (java.io BufferedWriter)))
@@ -12,7 +13,7 @@
   (writer-for-timestamp [self timestamp] "Returns a BufferedWriter-instance for the given timestamp (see historization strategy)")
   (write-to-hdfs [self msg-map] "Writes to the HDFS, expects a map with timestamp and message {:ts :msg}"))
 
-(defrecord FileHistorizer [config which-historizer zookeeper in-channel transform-or-nil-fn]
+(defrecord FileHistorizer [app-status config which-historizer zookeeper in-channel transform-or-nil-fn]
   c/Lifecycle
   (start [self]
     (log/info "-> starting FileHistorizer " which-historizer)
@@ -29,6 +30,7 @@
                      :scheduler (at/every close-interval
                                           #(hist/close-old-writers! writers max-age)
                                           pool))]
+      (apps/register-status-fun app-status (partial hist/historization-status-fn writers which-historizer))
       (async/pipeline 1 dev-null (comp
                                    (keep transform-or-nil-fn)
                                    (map (partial write-to-hdfs new-self))) in-channel)

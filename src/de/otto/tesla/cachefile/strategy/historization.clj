@@ -1,5 +1,6 @@
 (ns de.otto.tesla.cachefile.strategy.historization
   (:require [hdfs.core :as hdfs]
+            [de.otto.status :as s]
             [clojure.tools.logging :as log])
   (:import (java.io BufferedWriter OutputStreamWriter)
            (org.joda.time DateTimeZone DateTime)
@@ -81,3 +82,16 @@
     (or
       (load-and-update-existing-writer writers the-time)
       (create-and-store-new-writer output-path writers the-time))))
+
+(defn- is-a-writer-entry? [c]
+  (and (map? c) (= (into #{} (keys c)) #{:file-path :writer :last-access})))
+
+(defn- without-writer-object [c]
+  (if (is-a-writer-entry? c)
+    (dissoc c :writer)
+    c))
+
+(defn historization-status-fn [writers which-historizer]
+  (s/status-detail
+    (keyword which-historizer) :ok "all ok"
+    {:writers (clojure.walk/prewalk without-writer-object @writers)}))

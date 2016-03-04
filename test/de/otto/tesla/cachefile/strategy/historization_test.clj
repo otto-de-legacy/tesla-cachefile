@@ -161,3 +161,23 @@
       (let [writers (atom {:foo "some-writer"})]
         (is (= nil (hist/close-writers! writers)))
         (is (= "some-writer" (:foo @writers)))))))
+
+(deftest the-status-fn
+  (testing "should build status response"
+    (let [closed-writers (atom {:closed  []
+                                :flushed []})
+          some-data (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
+                                           :file-path   "some/path"
+                                           :last-access 100}}}
+                                 11 {11 {10 nil
+                                         11 {:writer      (CloseableMock closed-writers "WRITER-B")
+                                             :file-path   "some/path"
+                                             :last-access 150}}}}})]
+      (is (= {:some-name {:message "all ok"
+                          :status  :ok
+                          :writers {2015 {10 {1 {2 {:file-path   "some/path"
+                                                    :last-access 100}}}
+                                          11 {11 {10 nil
+                                                  11 {:file-path   "some/path"
+                                                      :last-access 150}}}}}}}
+             (hist/historization-status-fn some-data "some-name"))))))
