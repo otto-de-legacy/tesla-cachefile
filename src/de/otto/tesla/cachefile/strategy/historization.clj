@@ -6,6 +6,11 @@
            (org.joda.time DateTimeZone DateTime)
            (java.util UUID)))
 
+(defn- writer-entry? [c]
+  (when (map? c)
+    (if-let [writer-values (vals (select-keys c #{:file-path :writer :last-access}))]
+      (every? #(not (nil? %)) writer-values))))
+
 (defn- ts->time-map [millis]
   (when millis
     (let [date-time (DateTime. millis (DateTimeZone/getDefault))]
@@ -14,14 +19,17 @@
        :year  (.getYear date-time)
        :hour  (.getHourOfDay date-time)})))
 
+(defn time->path [{:keys [year month day hour]}]
+  [year month day hour])
+
 (defn- find-all-writers
   ([writers]
    (find-all-writers [] writers))
-  ([path writers]
-   (if (:writer writers)
-     (assoc writers :path path)
-     (flatten (map (fn [[parent-path sub-writers]]
-                     (find-all-writers (conj path parent-path) sub-writers)) writers)))))
+  ([_ node]
+   (if (writer-entry? node)
+     node
+     (flatten (map (fn [[_ sub-writers]]
+                     (find-all-writers sub-writers)) node)))))
 
 (defn- current-time []
   (System/currentTimeMillis))
@@ -40,23 +48,23 @@
   (BufferedWriter. (OutputStreamWriter. (hdfs/output-stream file-path))))
 
 (defn- create-new-writer [output-path the-time]
-  (let [file-path (output-file-path output-path the-time)
-        writer-map {:writer      (new-print-writer file-path)
-                    :file-path   file-path
-                    :last-access (current-time)}]
-    writer-map))
+  (let [file-path (output-file-path output-path the-time)]
+    {:writer      (new-print-writer file-path)
+     :path        (time->path the-time)
+     :file-path   file-path
+     :last-access (current-time)}))
 
-(defn- store-writer [writers {:keys [year month day hour]} writer]
-  (swap! writers assoc-in [year month day hour] writer)
+(defn- store-writer [writers {:keys [path] :as writer}]
+  (swap! writers assoc-in path writer)
   writer)
 
-(defn- load-and-update-existing-writer [writers {:keys [year month day hour] :as the-time}]
-  (when-let [writer-map (get-in @writers [year month day hour])]
-    (store-writer writers the-time
+(defn- load-and-update-existing-writer [writers the-time]
+  (when-let [writer-map (get-in @writers (time->path the-time))]
+    (store-writer writers
                   (assoc writer-map :last-access (current-time)))))
 
 (defn- create-and-store-new-writer [output-path writers the-time]
-  (store-writer writers the-time
+  (store-writer writers
                 (create-new-writer output-path the-time)))
 
 (defn- close-single-writer! [writer]
@@ -82,10 +90,6 @@
     (or
       (load-and-update-existing-writer writers the-time)
       (create-and-store-new-writer output-path writers the-time))))
-
-(defn- writer-entry? [c]
-  (when (map? c)
-    (every? #(not (nil? %)) (vals (select-keys c #{:file-path :writer :last-access})))))
 
 (defn- without-writer-object [c]
   (if (writer-entry? c)

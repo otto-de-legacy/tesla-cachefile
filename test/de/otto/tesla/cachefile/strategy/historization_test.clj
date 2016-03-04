@@ -43,10 +43,12 @@
   (testing "should look up existing writer from map"
     (with-redefs [hist/current-time (constantly 999)]
       (let [writers-map (atom {2015 {11 {17 {9 {:writer      "WRITER"
-                                                 :file-path   "some/path"
-                                                 :last-access 123}}}}})
+                                                :file-path   "some/path"
+                                                :path        [2015 11 17 9]
+                                                :last-access 123}}}}})
             expected-writer {:writer      "WRITER"
                              :file-path   "some/path"
+                             :path        [2015 11 17 9]
                              :last-access 999}]
         (is (= expected-writer
                (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0)))))
@@ -61,6 +63,7 @@
       (let [writers-map (atom {})
             expected-writer {:file-path   "some-path/2015/11/17/9/unique-id.hist.gz"
                              :last-access 999
+                             :path        [2015 11 17 9]
                              :writer      "WRITER"}]
         (is (= expected-writer
                (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0)))))
@@ -73,12 +76,15 @@
   (testing "should find all writers in a map"
     (let [the-search-map {2015 {10 {1 {2 {:writer      "WRITER-A"
                                           :file-path   "some/path"
+                                          :path        [2015 10 1 2]
                                           :last-access 123}}}
                                 11 {11 {11 {:writer      "WRITER-B"
                                             :file-path   "some/path"
+                                            :path        [2015 11 11 11]
                                             :last-access 123}}
                                     17 {10 {:writer      "WRITER-C"
                                             :file-path   "some/path"
+                                            :path        [2015 11 17 10]
                                             :last-access 123}}}}}]
       (is (= [{:file-path   "some/path"
                :last-access 123
@@ -109,12 +115,15 @@
                                 :flushed []})
           the-search-map (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                                 :file-path   "some/path"
+                                                :path [2015 10 1 2]
                                                 :last-access 123}}}
                                       11 {11 {11 {:writer      (CloseableMock closed-writers "WRITER-B")
                                                   :file-path   "some/path"
+                                                  :path [2015 11 11 11]
                                                   :last-access 123}}
                                           17 {10 {:writer      (CloseableMock closed-writers "WRITER-C")
                                                   :file-path   "some/path"
+                                                  :path [2015 11 17 10]
                                                   :last-access 123}}}}})]
       (close-writers! the-search-map)
       (is (= {2015 {10 {1 {2 nil}}
@@ -134,12 +143,15 @@
             writer-c (CloseableMock closed-writers "WRITER-C")
             the-search-map (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                                   :file-path   "some/path"
+                                                  :path [2015 10 1 2]
                                                   :last-access 100}}}
                                         11 {11 {11 {:writer      (CloseableMock closed-writers "WRITER-B")
                                                     :file-path   "some/path"
+                                                    :path [2015 11 11 11]
                                                     :last-access 150}}
                                             17 {10 {:writer      writer-c
                                                     :file-path   "some/path"
+                                                    :path [2015 11 17 10]
                                                     :last-access 200}}}}})]
 
         (close-writers! the-search-map (partial writer-too-old? 100))
@@ -147,6 +159,7 @@
                       11 {11 {11 nil}
                           17 {10 {:writer      writer-c
                                   :file-path   "some/path"
+                                  :path [2015 11 17 10]
                                   :last-access 200}}}}}
                @the-search-map))
         (is (= {:closed  ["WRITER-A" "WRITER-B"]
@@ -168,16 +181,20 @@
                                 :flushed []})
           some-data (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                            :file-path   "some/path"
+                                           :path [2015 10 1 2]
                                            :last-access 100}}}
                                  11 {11 {10 nil
                                          11 {:writer      (CloseableMock closed-writers "WRITER-B")
                                              :file-path   "some/path"
+                                             :path [2015 11 11 11]
                                              :last-access 150}}}}})]
       (is (= {:some-name {:message "all ok"
                           :status  :ok
                           :writers {2015 {10 {1 {2 {:file-path   "some/path"
+                                                    :path [2015 10 1 2]
                                                     :last-access 100}}}
                                           11 {11 {10 nil
                                                   11 {:file-path   "some/path"
+                                                      :path [2015 11 11 11]
                                                       :last-access 150}}}}}}}
              (hist/historization-status-fn some-data "some-name"))))))
