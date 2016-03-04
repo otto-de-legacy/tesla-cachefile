@@ -5,8 +5,7 @@
             [de.otto.tesla.cachefile.utils.zk-namenode :as zknn]
             [clojure.tools.logging :as log]
             [clojure.core.async :as async]
-            [de.otto.tesla.cachefile.utils.reading-properties :as rpr]
-            )
+            [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
   (:import (java.io BufferedWriter)))
 
 (defprotocol HistorizationHandling
@@ -48,9 +47,12 @@
         (hist/lookup-writer-or-create! writers millis)
         :writer))
   (write-to-hdfs [self {:keys [ts msg]}]
-    (let [^BufferedWriter writer (writer-for-timestamp self ts)]
-      (.write writer msg)
-      (.newLine writer))
+    (try
+      (doto (writer-for-timestamp self ts)
+        (.write msg)
+        (.newLine))
+      (catch Exception e
+        (log/error e "Error occured when writing message: " msg " with ts: " ts)))
     msg))
 
 (defn new-file-historizer
