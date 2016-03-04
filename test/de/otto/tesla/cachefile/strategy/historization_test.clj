@@ -38,22 +38,18 @@
       (is (= 1000 (count @ids))))))
 
 
-(def lookup-writer-or-create! #'hist/lookup-writer-or-create!)
+(def lookup-writer-or-create! #'hist/lookup-writer-or-create)
 (deftest looking-up-writers
   (testing "should look up existing writer from map"
     (with-redefs [hist/current-time (constantly 999)]
-      (let [writers-map (atom {2015 {11 {17 {9 {:writer      "WRITER"
-                                                :file-path   "some/path"
-                                                :path        [2015 11 17 9]
-                                                :last-access 123}}}}})
-            expected-writer {:writer      "WRITER"
-                             :file-path   "some/path"
-                             :path        [2015 11 17 9]
-                             :last-access 999}]
-        (is (= expected-writer
-               (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0)))))
-        (is (= {2015 {11 {17 {9 expected-writer}}}}
-               @writers-map)))))
+      (let [writer {:writer      "WRITER"
+                    :file-path   "some/path"
+                    :path        [2015 11 17 9]
+                    :write-count 0
+                    :last-access 123}
+            writers-map (atom {2015 {11 {17 {9 writer}}}})]
+        (is (= writer
+               (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0))))))))
 
 
   (testing "should create a new writer and store it"
@@ -64,11 +60,10 @@
             expected-writer {:file-path   "some-path/2015/11/17/9/unique-id.hist.gz"
                              :last-access 999
                              :path        [2015 11 17 9]
+                             :write-count 0
                              :writer      "WRITER"}]
         (is (= expected-writer
-               (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0)))))
-        (is (= {2015 {11 {17 {9 expected-writer}}}}
-               @writers-map))))))
+               (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0)))))))))
 
 
 (def find-all-writers #'hist/find-all-writers)
@@ -77,26 +72,32 @@
     (let [the-search-map {2015 {10 {1 {2 {:writer      "WRITER-A"
                                           :file-path   "some/path"
                                           :path        [2015 10 1 2]
+                                          :write-count 2
                                           :last-access 123}}}
                                 11 {11 {11 {:writer      "WRITER-B"
                                             :file-path   "some/path"
                                             :path        [2015 11 11 11]
+                                            :write-count 3
                                             :last-access 123}}
                                     17 {10 {:writer      "WRITER-C"
                                             :file-path   "some/path"
                                             :path        [2015 11 17 10]
+                                            :write-count 4
                                             :last-access 123}}}}}]
       (is (= [{:file-path   "some/path"
                :last-access 123
                :path        [2015 10 1 2]
+               :write-count 2
                :writer      "WRITER-A"}
               {:file-path   "some/path"
                :last-access 123
                :path        [2015 11 11 11]
+               :write-count 3
                :writer      "WRITER-B"}
               {:file-path   "some/path"
                :last-access 123
                :path        [2015 11 17 10]
+               :write-count 4
                :writer      "WRITER-C"}]
              (find-all-writers the-search-map))))))
 
@@ -115,15 +116,18 @@
                                 :flushed []})
           the-search-map (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                                 :file-path   "some/path"
-                                                :path [2015 10 1 2]
+                                                :path        [2015 10 1 2]
+                                                :write-count 0
                                                 :last-access 123}}}
                                       11 {11 {11 {:writer      (CloseableMock closed-writers "WRITER-B")
                                                   :file-path   "some/path"
-                                                  :path [2015 11 11 11]
+                                                  :path        [2015 11 11 11]
+                                                  :write-count 0
                                                   :last-access 123}}
                                           17 {10 {:writer      (CloseableMock closed-writers "WRITER-C")
                                                   :file-path   "some/path"
-                                                  :path [2015 11 17 10]
+                                                  :path        [2015 11 17 10]
+                                                  :write-count 0
                                                   :last-access 123}}}}})]
       (close-writers! the-search-map)
       (is (= {2015 {10 {1 {2 nil}}
@@ -143,15 +147,18 @@
             writer-c (CloseableMock closed-writers "WRITER-C")
             the-search-map (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                                   :file-path   "some/path"
-                                                  :path [2015 10 1 2]
+                                                  :path        [2015 10 1 2]
+                                                  :write-count 0
                                                   :last-access 100}}}
                                         11 {11 {11 {:writer      (CloseableMock closed-writers "WRITER-B")
                                                     :file-path   "some/path"
-                                                    :path [2015 11 11 11]
+                                                    :path        [2015 11 11 11]
+                                                    :write-count 2
                                                     :last-access 150}}
                                             17 {10 {:writer      writer-c
                                                     :file-path   "some/path"
-                                                    :path [2015 11 17 10]
+                                                    :path        [2015 11 17 10]
+                                                    :write-count 3
                                                     :last-access 200}}}}})]
 
         (close-writers! the-search-map (partial writer-too-old? 100))
@@ -159,7 +166,8 @@
                       11 {11 {11 nil}
                           17 {10 {:writer      writer-c
                                   :file-path   "some/path"
-                                  :path [2015 11 17 10]
+                                  :path        [2015 11 17 10]
+                                  :write-count 3
                                   :last-access 200}}}}}
                @the-search-map))
         (is (= {:closed  ["WRITER-A" "WRITER-B"]
@@ -181,20 +189,41 @@
                                 :flushed []})
           some-data (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                            :file-path   "some/path"
-                                           :path [2015 10 1 2]
+                                           :path        [2015 10 1 2]
+                                           :write-count 2
                                            :last-access 100}}}
                                  11 {11 {10 nil
                                          11 {:writer      (CloseableMock closed-writers "WRITER-B")
                                              :file-path   "some/path"
-                                             :path [2015 11 11 11]
+                                             :path        [2015 11 11 11]
+                                             :write-count 3
                                              :last-access 150}}}}})]
       (is (= {:some-name {:message "all ok"
                           :status  :ok
                           :writers {2015 {10 {1 {2 {:file-path   "some/path"
-                                                    :path [2015 10 1 2]
+                                                    :write-count 2
                                                     :last-access 100}}}
                                           11 {11 {10 nil
                                                   11 {:file-path   "some/path"
-                                                      :path [2015 11 11 11]
+                                                      :write-count 3
                                                       :last-access 150}}}}}}}
              (hist/historization-status-fn some-data "some-name"))))))
+
+(deftest storing-writers
+  (testing "should store a writer at the path of the writer"
+    (let [writers (atom {})
+          the-writer {:writer      "foobar"
+                      :file-path   "some/path"
+                      :path        [2015 11 11 11]
+                      :write-count 3
+                      :last-access 150}]
+      (hist/store-writer the-writer writers)
+      (is (= {2015 {11 {11 {11 the-writer}}}}
+             @writers)))))
+
+(deftest touching
+  (testing "touching a writer"
+    (with-redefs [hist/current-time (constantly 250)]
+      (is (= {:last-access 250
+              :write-count 51}
+             (hist/touch-writer {:write-count 50}))))))

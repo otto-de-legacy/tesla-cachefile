@@ -46,13 +46,14 @@
   HistorizationHandling
   (writer-for-timestamp [{:keys [output-path writers]} millis]
     (-> (zknn/with-zk-namenode zookeeper output-path)
-        (hist/lookup-writer-or-create! writers millis)
-        :writer))
-  (write-to-hdfs [self {:keys [ts msg]}]
+        (hist/lookup-writer-or-create writers millis)))
+
+  (write-to-hdfs [{:keys [writers] :as self} {:keys [ts msg]}]
     (try
-      (doto (writer-for-timestamp self ts)
-        (.write msg)
-        (.newLine))
+      (-> (writer-for-timestamp self ts)
+          (hist/write-line! msg)
+          (hist/touch-writer)
+          (hist/store-writer writers))
       (catch Exception e
         (log/error e "Error occured when writing message: " msg " with ts: " ts)))
     msg))

@@ -51,21 +51,23 @@
   (let [file-path (output-file-path output-path the-time)]
     {:writer      (new-print-writer file-path)
      :path        (time->path the-time)
+     :write-count 0
      :file-path   file-path
      :last-access (current-time)}))
 
-(defn- store-writer [writers {:keys [path] :as writer}]
+(defn touch-writer [writer]
+  (-> writer
+      (assoc :last-access (current-time))
+      (update :write-count inc)))
+
+(defn write-line! [{:keys [writer]} msg]
+  (doto writer
+    (.write msg)
+    (.newLine)))
+
+(defn store-writer [{:keys [path] :as writer} writers]
   (swap! writers assoc-in path writer)
   writer)
-
-(defn- load-and-update-existing-writer [writers the-time]
-  (when-let [writer-map (get-in @writers (time->path the-time))]
-    (store-writer writers
-                  (assoc writer-map :last-access (current-time)))))
-
-(defn- create-and-store-new-writer [output-path writers the-time]
-  (store-writer writers
-                (create-new-writer output-path the-time)))
 
 (defn- close-single-writer! [writer]
   (doto writer (.flush) (.close)))
@@ -85,15 +87,15 @@
 (defn close-old-writers! [writers max-writer-age]
   (close-writers! writers (partial writer-too-old? max-writer-age)))
 
-(defn lookup-writer-or-create! [output-path writers millis]
+(defn lookup-writer-or-create [output-path writers millis]
   (when-let [the-time (ts->time-map millis)]
     (or
-      (load-and-update-existing-writer writers the-time)
-      (create-and-store-new-writer output-path writers the-time))))
+      (get-in @writers (time->path the-time))
+      (create-new-writer output-path the-time))))
 
 (defn- without-writer-object [c]
   (if (writer-entry? c)
-    (dissoc c :writer)
+    (dissoc c :writer :path)
     c))
 
 (defn historization-status-fn [writers which-historizer]
