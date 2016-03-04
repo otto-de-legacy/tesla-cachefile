@@ -1,5 +1,6 @@
 (ns de.otto.tesla.cachefile.strategy.historization
-  (:require [hdfs.core :as hdfs])
+  (:require [hdfs.core :as hdfs]
+            [clojure.tools.logging :as log])
   (:import (java.io BufferedWriter OutputStreamWriter)
            (org.joda.time DateTimeZone DateTime)
            (java.util UUID)))
@@ -57,14 +58,20 @@
   (store-writer writers the-time
                 (create-new-writer output-path the-time)))
 
+(defn- close-single-writer! [writer]
+  (doto writer (.flush) (.close)))
+
 (defn close-writers!
   ([writers]
    (close-writers! writers (constantly true)))
   ([writers close-writer?]
    (let [all-writers (find-all-writers @writers)]
      (doseq [{:keys [path writer]} (filter close-writer? all-writers)]
-       (doto writer (.flush) (.close))
-       (swap! writers assoc-in path nil)))))
+       (try
+         (close-single-writer! writer)
+         (swap! writers assoc-in path nil)
+         (catch Exception e
+           (log/error e "Error occured when closing and flushing writer in: " path)))))))
 
 (defn close-old-writers! [writers max-writer-age]
   (close-writers! writers (partial writer-too-old? max-writer-age)))
