@@ -83,11 +83,12 @@
       (load-and-update-existing-writer writers the-time)
       (create-and-store-new-writer output-path writers the-time))))
 
-(defn- is-a-writer-entry? [c]
-  (and (map? c) (= (into #{} (keys c)) #{:file-path :writer :last-access})))
+(defn- writer-entry? [c]
+  (when (map? c)
+    (every? #(not (nil? %)) (vals (select-keys c #{:file-path :writer :last-access})))))
 
 (defn- without-writer-object [c]
-  (if (is-a-writer-entry? c)
+  (if (writer-entry? c)
     (dissoc c :writer)
     c))
 
