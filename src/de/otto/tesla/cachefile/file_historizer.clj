@@ -7,7 +7,7 @@
             [de.otto.tesla.stateful.app-status :as apps]
             [clojure.core.async :as async]
             [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
-  (:import (java.io BufferedWriter)))
+  (:import (java.io BufferedWriter IOException)))
 
 (defprotocol HistorizationHandling
   (writer-for-timestamp [self timestamp] "Returns a BufferedWriter-instance for the given timestamp (see historization strategy)")
@@ -54,7 +54,7 @@
           (hist/write-line! msg)
           (hist/touch-writer)
           (hist/store-writer writers))
-      (catch Exception e
+      (catch IOException e
         (log/error e "Error occured when writing message: " msg " with ts: " ts)))
     msg))
 

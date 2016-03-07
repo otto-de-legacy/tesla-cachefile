@@ -1,7 +1,7 @@
 (ns de.otto.tesla.cachefile.strategy.historization-test
   (:require [clojure.test :refer :all]
             [de.otto.tesla.cachefile.strategy.historization :as hist])
-  (:import (java.io Flushable Closeable)
+  (:import (java.io Flushable Closeable IOException)
            (org.joda.time DateTime)))
 
 (def ts->time-map #'hist/ts->time-map)
@@ -130,9 +130,7 @@
                                                   :write-count 0
                                                   :last-access 123}}}}})]
       (close-writers! the-search-map)
-      (is (= {2015 {10 {1 {2 nil}}
-                    11 {11 {11 nil}
-                        17 {10 nil}}}}
+      (is (= {}
              @the-search-map))
       (is (= {:closed  ["WRITER-A" "WRITER-B" "WRITER-C"]
               :flushed ["WRITER-A" "WRITER-B" "WRITER-C"]}
@@ -162,9 +160,7 @@
                                                     :last-access 200}}}}})]
 
         (close-writers! the-search-map (partial writer-too-old? 100))
-        (is (= {2015 {10 {1 {2 nil}}
-                      11 {11 {11 nil}
-                          17 {10 {:writer      writer-c
+        (is (= {2015 {11 {17 {10 {:writer      writer-c
                                   :file-path   "some/path"
                                   :path        [2015 11 17 10]
                                   :write-count 3
@@ -175,9 +171,10 @@
                @closed-writers))))))
 
 
+
 (deftest exceptions-on-closing
   (testing "should catch exception and not set writer-instance to nil if an exception occures"
-    (with-redefs [hist/close-single-writer! (fn [_] (throw (RuntimeException. "a dummy exception")))
+    (with-redefs [hist/close-single-writer! (fn [_] (throw (IOException. "a dummy exception")))
                   hist/find-all-writers (constantly [{:path [:foo]}])]
       (let [writers (atom {:foo "some-writer"})]
         (is (= nil (hist/close-writers! writers)))

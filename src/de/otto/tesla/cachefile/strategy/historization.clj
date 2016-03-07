@@ -2,7 +2,7 @@
   (:require [hdfs.core :as hdfs]
             [de.otto.status :as s]
             [clojure.tools.logging :as log])
-  (:import (java.io BufferedWriter OutputStreamWriter)
+  (:import (java.io BufferedWriter OutputStreamWriter IOException)
            (org.joda.time DateTimeZone DateTime)
            (java.util UUID)))
 
@@ -73,6 +73,24 @@
 (defn- close-single-writer! [writer]
   (doto writer (.flush) (.close)))
 
+(defn is-top-level-path? [path]
+  (< (count path) 2))
+
+(defn remove-path! [writers path]
+  (if (is-top-level-path? path)
+    (swap! writers dissoc (first path))
+    (swap! writers update-in (pop path) dissoc (last path))))
+
+(defn remove-closed-path! [writers closed-writer-path]
+  (loop [path closed-writer-path]
+    (when-not (empty? path)
+      (let [the-value (get-in @writers path)]
+        (when (or
+                (writer-entry? the-value)
+                (empty? the-value))
+          (remove-path! writers path)
+          (recur (pop path)))))))
+
 (defn close-writers!
   ([writers]
    (close-writers! writers (constantly true)))
@@ -81,8 +99,8 @@
      (doseq [{:keys [path writer]} (filter close-writer? all-writers)]
        (try
          (close-single-writer! writer)
-         (swap! writers assoc-in path nil)
-         (catch Exception e
+         (remove-closed-path! writers path)
+         (catch IOException e
            (log/error e "Error occured when closing and flushing writer in: " path)))))))
 
 (defn close-old-writers! [writers max-writer-age]
