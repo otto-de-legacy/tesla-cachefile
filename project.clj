@@ -16,6 +16,11 @@
                  [org.apache.hadoop/hadoop-client "2.7.1"]
                  [hdfs-clj "0.1.15"]]
   :target-path "target/%s"
-  :profiles {:dev     {:dependencies [[de.otto/tesla-microservice "0.1.18"]]
+  :test-paths ["test" "test-resources"]
+  :profiles {:dev     {:dependencies [[de.otto/tesla-microservice "0.1.18"]
+                                      [org.slf4j/slf4j-api "1.7.16"]
+                                      [ch.qos.logback/logback-core "1.1.5"]
+                                      [ch.qos.logback/logback-classic "1.1.5"]]
+
                        :plugins      [[lein-ancient "0.5.4"]]}
              :uberjar {:aot :all}})

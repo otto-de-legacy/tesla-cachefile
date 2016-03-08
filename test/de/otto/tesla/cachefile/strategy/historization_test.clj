@@ -174,7 +174,7 @@
 
 (deftest exceptions-on-closing
   (testing "should catch exception and not set writer-instance to nil if an exception occures"
-    (with-redefs [hist/close-single-writer! (fn [_] (throw (IOException. "a dummy exception")))
+    (with-redefs [hist/close-single-writer! (fn [_ _] (throw (IOException. "a dummy exception")))
                   hist/find-all-writers (constantly [{:path [:foo]}])]
       (let [writers (atom {:foo "some-writer"})]
         (is (= nil (hist/close-writers! writers)))

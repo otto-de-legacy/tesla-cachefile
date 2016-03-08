@@ -1,0 +1,17 @@
+<configuration>
+
+    <contextName>tesla-cachefile</contextName>
+
+    <appender name="consoleAppender" class="ch.qos.logback.core.ConsoleAppender">
+        <append>true</append>
+        <encoder>
+            <pattern>%d{HH:mm:ss,SSS} %-5p %c{5} %t "%m"%n</pattern>
+        </encoder>
+    </appender>
+
+
+    <root level="${log_level:-warn}">
+        <appender-ref ref="consoleAppender"/>
+    </root>
+
+</configuration>

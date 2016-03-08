@@ -3,6 +3,8 @@
             [com.stuartsierra.component :as comp]
             [de.otto.tesla.cachefile.cachefile-handler :as cfh]
             [com.stuartsierra.component :as c]
+            [clj-time.core :as t]
+            [clj-time.coerce :as coe]
             [de.otto.tesla.zk.zk-observer :as zk]
             [de.otto.tesla.system :as system]))
 
@@ -29,4 +31,11 @@
              "not a vector or bindings-count is not even"))))
 
 
+(defn to-datetime [& args]
+  (t/from-time-zone
+    (apply t/date-time args)
+    (t/time-zone-for-id "Europe/Berlin")))
 
+(defn to-utc-timestamp [& args]
+  (-> (apply to-datetime args)
+      (coe/to-long)))
