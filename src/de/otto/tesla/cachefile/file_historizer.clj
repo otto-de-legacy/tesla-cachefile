@@ -1,13 +1,14 @@
 (ns de.otto.tesla.cachefile.file-historizer
   (:require [com.stuartsierra.component :as c]
             [overtone.at-at :as at]
+            [metrics.counters :as counters]
             [de.otto.tesla.cachefile.strategy.historization :as hist]
             [de.otto.tesla.cachefile.utils.zk-namenode :as zknn]
             [clojure.tools.logging :as log]
             [de.otto.tesla.stateful.app-status :as apps]
             [clojure.core.async :as async]
             [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
-  (:import (java.io BufferedWriter IOException)))
+  (:import (java.io IOException)))
 
 (defprotocol HistorizationHandling
   (writer-for-timestamp [self timestamp] "Returns a BufferedWriter-instance for the given timestamp (see historization strategy)")
@@ -54,6 +55,7 @@
           (hist/write-line! msg)
           (hist/touch-writer)
           (hist/store-writer writers))
+      (counters/inc! (counters/counter ["file-historizer" which-historizer "write-to-hdfs"]))
       (catch IOException e
         (log/error e "Error occured when writing message: " msg " with ts: " ts)))
     msg))
