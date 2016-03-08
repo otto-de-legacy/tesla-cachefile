@@ -10,9 +10,20 @@
             [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
   (:import (java.io IOException)))
 
-(defprotocol HistorizationHandling
-  (writer-for-timestamp [self timestamp] "Returns a BufferedWriter-instance for the given timestamp (see historization strategy)")
-  (write-to-hdfs [self msg-map] "Writes to the HDFS, expects a map with timestamp and message {:ts :msg}"))
+(defn writer-for-timestamp [{:keys [output-path writers zookeeper]} millis]
+  (-> (zknn/with-zk-namenode zookeeper output-path)
+      (hist/lookup-writer-or-create writers millis)))
+
+(defn write-to-hdfs [{:keys [writers which-historizer] :as self} {:keys [ts msg]}]
+  (try
+    (-> (writer-for-timestamp self ts)
+        (hist/write-line! msg)
+        (hist/touch-writer)
+        (hist/store-writer writers))
+    (counters/inc! (counters/counter ["file-historizer" which-historizer "write-to-hdfs"]))
+    (catch IOException e
+      (log/error e "Error occured when writing message: " msg " with ts: " ts)))
+  msg)
 
 (defrecord FileHistorizer [app-status config which-historizer zookeeper in-channel transform-or-nil-fn]
   c/Lifecycle
@@ -42,23 +53,7 @@
     (hist/close-writers! writers)
     (when schedule (at/kill schedule))
     (at/stop-and-reset-pool! pool)
-    self)
-
-  HistorizationHandling
-  (writer-for-timestamp [{:keys [output-path writers]} millis]
-    (-> (zknn/with-zk-namenode zookeeper output-path)
-        (hist/lookup-writer-or-create writers millis)))
-
-  (write-to-hdfs [{:keys [writers] :as self} {:keys [ts msg]}]
-    (try
-      (-> (writer-for-timestamp self ts)
-          (hist/write-line! msg)
-          (hist/touch-writer)
-          (hist/store-writer writers))
-      (counters/inc! (counters/counter ["file-historizer" which-historizer "write-to-hdfs"]))
-      (catch IOException e
-        (log/error e "Error occured when writing message: " msg " with ts: " ts)))
-    msg))
+    self))
 
 (defn new-file-historizer
   ([which-historizer in-channel]
