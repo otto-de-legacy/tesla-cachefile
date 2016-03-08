@@ -70,7 +70,8 @@
   (swap! writers assoc-in path writer)
   writer)
 
-(defn- close-single-writer! [writer]
+(defn- close-single-writer! [writer path]
+  (log/info "Closing writer for path: " path)
   (doto writer (.flush) (.close)))
 
 (defn is-top-level-path? [path]
@@ -98,7 +99,7 @@
    (let [all-writers (find-all-writers @writers)]
      (doseq [{:keys [path writer]} (filter close-writer? all-writers)]
        (try
-         (close-single-writer! writer)
+         (close-single-writer! writer path)
          (remove-closed-path! writers path)
          (catch IOException e
            (log/error e "Error occured when closing and flushing writer in: " path)))))))
