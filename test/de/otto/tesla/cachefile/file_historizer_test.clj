@@ -22,7 +22,7 @@
                       (async/>!! in-channel {:ts  (u/to-utc-timestamp 2016 3 2 11 11)
                                              :msg "FOO-BAR"})
                       (testing "should initialize writer-instance for incoming message"
-                        (Thread/sleep 100)
+                        (Thread/sleep 200)
                         (is (= [2016 3 2 11]
                                (get-in @(:writers file-historizer) [2016 3 2 11 :path])))
                         (is (= 1
