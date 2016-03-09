@@ -7,6 +7,7 @@
             [clojure.tools.logging :as log]
             [de.otto.tesla.stateful.app-status :as apps]
             [clojure.core.async :as async]
+            [de.otto.tesla.cachefile.utils.metrics :as util-metrics]
             [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
   (:import (java.io IOException)))
 
@@ -45,7 +46,9 @@
       (apps/register-status-fun app-status (partial hist/historization-status-fn writers which-historizer))
       (async/pipeline 1 dev-null (comp
                                    (keep transform-or-nil-fn)
-                                   (map (partial write-to-hdfs new-self))) in-channel)
+                                   (map (partial util-metrics/metered-execution 
+                                                 (str which-historizer "write-to-hdfs") 
+                                                 write-to-hdfs new-self))) in-channel)
       new-self))
 
   (stop [{:keys [writers schedule pool] :as self}]
