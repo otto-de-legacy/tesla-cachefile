@@ -15,13 +15,12 @@
   (-> (zknn/with-zk-namenode zookeeper output-path)
       (hist/lookup-writer-or-create writers millis)))
 
-(defn write-to-hdfs [{:keys [writers which-historizer] :as self} {:keys [ts msg]}]
+(defn write-to-hdfs [{:keys [writers] :as self} {:keys [ts msg]}]
   (try
     (-> (writer-for-timestamp self ts)
         (hist/write-line! msg)
         (hist/touch-writer)
         (hist/store-writer writers))
-    (counters/inc! (counters/counter ["file-historizer" which-historizer "write-to-hdfs"]))
     (catch IOException e
       (log/error e "Error occured when writing message: " msg " with ts: " ts)))
   msg)
@@ -46,8 +45,8 @@
       (apps/register-status-fun app-status (partial hist/historization-status-fn writers which-historizer))
       (async/pipeline 1 dev-null (comp
                                    (keep transform-or-nil-fn)
-                                   (map (partial util-metrics/metered-execution 
-                                                 (str which-historizer "write-to-hdfs") 
+                                   (map (partial util-metrics/metered-execution
+                                                 ["file-historizer" which-historizer "write-to-hdfs"] 
                                                  write-to-hdfs new-self))) in-channel)
       new-self))
 

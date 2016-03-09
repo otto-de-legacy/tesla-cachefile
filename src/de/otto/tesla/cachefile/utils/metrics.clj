@@ -3,17 +3,17 @@
             [metrics.meters :as meters]
             [metrics.timers :as timers]))
 
-(defn metered-execution [component-name fn & fn-params]
-  (let [timing (timers/start (timers/timer [component-name "time"]))
-        exception-meter (meters/meter [component-name "exception"])
-        messages-meter (meters/meter [component-name "messages" "processed"])]
+(defn metered-execution [namespace fn & fn-params]
+  (let [timing (timers/start (timers/timer (conj namespace "time")))
+        exception-meter (meters/meter (conj namespace "exception"))
+        messages-meter (meters/meter (conj namespace "messages" "processed"))]
     (try
       (let [return-value (apply fn fn-params)]
         (meters/mark! messages-meter)
         return-value)
       (catch Exception e
         (meters/mark! exception-meter)
-        (log/error e (str "Exception in " component-name))
+        (log/error e (str "Exception in " namespace))
         (throw e))
       (finally
         (timers/stop timing)))))
