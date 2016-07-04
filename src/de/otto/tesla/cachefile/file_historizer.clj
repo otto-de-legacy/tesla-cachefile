@@ -8,14 +8,15 @@
             [de.otto.tesla.stateful.app-status :as apps]
             [clojure.core.async :as async]
             [de.otto.tesla.cachefile.utils.metrics :as util-metrics]
-            [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
+            [de.otto.tesla.cachefile.utils.reading-properties :as rpr]
+            [de.otto.status :as s])
   (:import (java.io IOException)))
 
 (defn writer-for-timestamp [{:keys [output-path writers zookeeper]} millis]
   (-> (zknn/with-zk-namenode zookeeper output-path)
       (hist/lookup-writer-or-create writers millis)))
 
-(defn write-to-hdfs [{:keys [writers which-historizer] :as self} {:keys [ts msg]}]
+(defn write-to-hdfs [{:keys [writers which-historizer] :as self} app-status {:keys [ts msg]}]
   (try
     (-> (writer-for-timestamp self ts)
         (hist/write-line! msg)
@@ -23,7 +24,8 @@
         (hist/store-writer writers))
     (counters/inc! (counters/counter ["file-historizer" which-historizer "write-to-hdfs"]))
     (catch IOException e
-      (log/error e "Error occured when writing message: " msg " with ts: " ts)))
+      (log/error e "Error occured when writing message: " msg " with ts: " ts)
+      (apps/register-status-fun app-status (partial hist/writing-error-status-fn which-historizer msg e))))
   msg)
 
 (defrecord FileHistorizer [app-status config which-historizer zookeeper in-channel transform-or-nil-fn]
@@ -46,9 +48,9 @@
       (apps/register-status-fun app-status (partial hist/historization-status-fn writers which-historizer))
       (async/pipeline 1 dev-null (comp
                                    (keep transform-or-nil-fn)
-                                   (map (partial util-metrics/metered-execution 
-                                                 (str which-historizer "write-to-hdfs") 
-                                                 write-to-hdfs new-self))) in-channel)
+                                   (map (partial util-metrics/metered-execution
+                                                 (str which-historizer "write-to-hdfs")
+                                                 write-to-hdfs new-self app-status))) in-channel)
       new-self))
 
   (stop [{:keys [writers schedule pool] :as self}]

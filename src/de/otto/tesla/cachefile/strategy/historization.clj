@@ -122,3 +122,7 @@
   (s/status-detail
     (keyword which-historizer) :ok "all ok"
     {:writers (clojure.walk/prewalk without-writer-object @writers)}))
+
+(defn writing-error-status-fn [which-historizer msg e]
+  (s/status-detail
+    (keyword which-historizer) :warning (str "Could not write message " msg " because of error " e)))
