@@ -5,6 +5,7 @@ to use a cachefile locally or on hdfs.
 In case of hdfs, the namenode can be automatically determined by querying a zookeeper every time the cache-file is read or written.
 
 [![Build Status](https://travis-ci.org/otto-de/tesla-cachefile.svg)](https://travis-ci.org/otto-de/tesla-cachefile)
+[![Dependencies Status](http://jarkeeper.com/otto-de/tesla-vault/status.svg)](http://jarkeeper.com/otto-de/tesla-cachefile)
 
 ## Usage
 
