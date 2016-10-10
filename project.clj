@@ -16,6 +16,10 @@
                  [org.apache.hadoop/hadoop-client "2.7.1"]
                  [hdfs-clj "0.1.15"]]
   :target-path "target/%s"
+  :plugins [[lein-release "1.0.5"]]
+  :lein-release {:scm        :git
+                 :deploy-via :shell
+                 :shell      ["lein" "deploy" "clojars"]}
   :test-paths ["test" "test-resources"]
   :profiles {:dev     {:dependencies [[de.otto/tesla-microservice "0.1.32"]
                                       [org.slf4j/slf4j-api "1.7.16"]
