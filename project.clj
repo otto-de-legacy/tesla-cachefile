@@ -16,7 +16,6 @@
                  [org.apache.hadoop/hadoop-client "2.7.1"]
                  [hdfs-clj "0.1.15"]]
   :target-path "target/%s"
-  :plugins [[lein-release "1.0.5"]]
   :lein-release {:scm        :git
                  :deploy-via :shell
                  :shell      ["lein" "deploy" "clojars"]}
@@ -26,5 +25,5 @@
                                       [ch.qos.logback/logback-core "1.1.5"]
                                       [ch.qos.logback/logback-classic "1.1.5"]]
 
-                       :plugins      [[lein-ancient "0.5.4"]]}
+                       :plugins      [[lein-ancient "0.5.4"] [lein-release/lein-release "1.0.9"]]}
              :uberjar {:aot :all}})
