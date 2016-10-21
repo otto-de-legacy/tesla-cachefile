@@ -118,11 +118,12 @@
     (dissoc c :writer :path)
     c))
 
-(defn historization-status-fn [writers which-historizer]
-  (s/status-detail
-    (keyword which-historizer) :ok "all ok"
-    {:writers (clojure.walk/prewalk without-writer-object @writers)}))
-
-(defn writing-error-status-fn [which-historizer msg e]
-  (s/status-detail
-    (keyword which-historizer) :warning (str "Could not write message " msg " because of error " e)))
+(defn historization-status-fn [{:keys [last-error writers which-historizer]}]
+  (let [writer-details {:writers (clojure.walk/prewalk without-writer-object @writers)}]
+    (if-let [{:keys [msg ts exception]} @last-error]
+      (s/status-detail
+        (keyword which-historizer) :warning (str "Could not write message \"" msg "\" at ts: \"" ts "\" because of error \"" (.getMessage exception) "\"")
+        writer-details)
+      (s/status-detail
+        (keyword which-historizer) :ok "all ok"
+        writer-details))))

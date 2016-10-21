@@ -8,8 +8,7 @@
     [com.stuartsierra.component :as c]
     [de.otto.tesla.zk.zk-observer :as zk]
     [clojure.core.async :as async]
-    [de.otto.tesla.stateful.app-status :as apps]
-    [de.otto.tesla.cachefile.strategy.historization :as hist])
+    [de.otto.tesla.stateful.app-status :as apps])
   (:import (java.io IOException)))
 
 (defn test-system [runtime-conf in-channel]
@@ -33,13 +32,17 @@
 
 (deftest handling-errors-on-write
   (testing "should catch exceptions when writing"
-    (with-redefs [apps/register-status-fun (fn [_ fun] (fun))
-                  hist/writing-error-status-fn (fn [which-historizer msg e]
-                                                 (do
-                                                   (is (= "test-histo" which-historizer))
-                                                   (is (= "dummy-msg" msg))
-                                                   (is (= "some dummy exception" (.getMessage e)))))
+    (with-redefs [apps/register-status-fun (constantly nil)
                   zknn/with-zk-namenode (fn [_ _] (throw (IOException. "some dummy exception")))]
-      (let [test-fh (fh/new-file-historizer "test-histo" nil)]
-        (is (= "dummy-msg"
-               (fh/write-to-hdfs test-fh nil {:msg "dummy-msg"})))))))
+      (let [test-fh (-> (fh/new-file-historizer "test-histo" (async/chan 0))
+                        (c/start))
+            last-error (:last-error test-fh)]
+        (try
+          (is (= "dummy-msg"
+                 (fh/write-to-hdfs test-fh {:msg "dummy-msg"})))
+          (is (= "dummy-msg"
+                 (:msg @last-error)))
+          (is (= "some dummy exception"
+                 (.getMessage (:exception @last-error))))
+          (finally
+            (c/stop test-fh)))))))

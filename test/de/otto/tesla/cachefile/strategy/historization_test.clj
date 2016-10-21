@@ -204,7 +204,38 @@
                                                   11 {:file-path   "some/path"
                                                       :write-count 3
                                                       :last-access 150}}}}}}}
-             (hist/historization-status-fn some-data "some-name"))))))
+             (hist/historization-status-fn {:writers          some-data
+                                            :last-error       (atom nil)
+                                            :which-historizer "some-name"})))))
+
+  (testing "should build status response with last error"
+    (let [closed-writers (atom {:closed  []
+                                :flushed []})
+          some-data (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
+                                           :file-path   "some/path"
+                                           :path        [2015 10 1 2]
+                                           :write-count 2
+                                           :last-access 100}}}
+                                 11 {11 {10 nil
+                                         11 {:writer      (CloseableMock closed-writers "WRITER-B")
+                                             :file-path   "some/path"
+                                             :path        [2015 11 11 11]
+                                             :write-count 3
+                                             :last-access 150}}}}})]
+      (is (= {:some-name {:message (str "Could not write message \"some-msg\" at ts: \"123\" because of error \"test exception\"")
+                          :status  :warning
+                          :writers {2015 {10 {1 {2 {:file-path   "some/path"
+                                                    :write-count 2
+                                                    :last-access 100}}}
+                                          11 {11 {10 nil
+                                                  11 {:file-path   "some/path"
+                                                      :write-count 3
+                                                      :last-access 150}}}}}}}
+             (hist/historization-status-fn {:writers          some-data
+                                            :last-error       (atom {:msg       "some-msg"
+                                                                     :ts        123
+                                                                     :exception (RuntimeException. "test exception")})
+                                            :which-historizer "some-name"}))))))
 
 (deftest storing-writers
   (testing "should store a writer at the path of the writer"

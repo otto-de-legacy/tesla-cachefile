@@ -16,7 +16,7 @@
   (-> (zknn/with-zk-namenode zookeeper output-path)
       (hist/lookup-writer-or-create writers millis)))
 
-(defn write-to-hdfs [{:keys [writers which-historizer] :as self} app-status {:keys [ts msg]}]
+(defn write-to-hdfs [{:keys [writers which-historizer last-error] :as self} {:keys [ts msg]}]
   (try
     (-> (writer-for-timestamp self ts)
         (hist/write-line! msg)
@@ -25,7 +25,9 @@
     (counters/inc! (counters/counter ["file-historizer" which-historizer "write-to-hdfs"]))
     (catch IOException e
       (log/error e "Error occured when writing message: " msg " with ts: " ts)
-      (apps/register-status-fun app-status (partial hist/writing-error-status-fn which-historizer msg e))))
+      (reset! last-error {:msg       msg
+                          :ts        ts
+                          :exception e})))
   msg)
 
 (defrecord FileHistorizer [app-status config which-historizer zookeeper in-channel transform-or-nil-fn]
@@ -41,16 +43,17 @@
           new-self (assoc self
                      :pool pool
                      :output-path output-path
+                     :last-error (atom nil)
                      :writers writers
                      :scheduler (at/every close-interval
                                           #(hist/close-old-writers! writers max-age)
                                           pool))]
-      (apps/register-status-fun app-status (partial hist/historization-status-fn writers which-historizer))
+      (apps/register-status-fun app-status (partial hist/historization-status-fn new-self))
       (async/pipeline 1 dev-null (comp
                                    (keep transform-or-nil-fn)
                                    (map (partial util-metrics/metered-execution
                                                  (str which-historizer "write-to-hdfs")
-                                                 write-to-hdfs new-self app-status))) in-channel)
+                                                 write-to-hdfs new-self))) in-channel)
       new-self))
 
   (stop [{:keys [writers schedule pool] :as self}]
