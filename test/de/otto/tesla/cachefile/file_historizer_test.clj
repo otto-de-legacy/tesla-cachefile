@@ -16,14 +16,25 @@
       (assoc :zookeeper (c/using (zk/new-zkobserver) [:config]))
       (assoc :file-historizer (c/using (fh/new-file-historizer "test-historizer" in-channel) [:config :app-status :zookeeper]))))
 
+(def three-seconds 3000)
+
+(defn too-much-time-passed-since [start-time]
+  (let [time-taken (- (System/currentTimeMillis) start-time)]
+    (> time-taken three-seconds)))
+
 (deftest integration
   (let [in-channel (async/chan 1)]
+    (async/>!! in-channel {:ts  (u/to-utc-timestamp 2016 3 2 11 11)
+                           :msg "FOO-BAR"})
     (u/with-started [started (test-system {:test-historizer-toplevel-path "target/test-historizer"} in-channel)]
-                    (let [file-historizer (:file-historizer started)]
-                      (async/>!! in-channel {:ts  (u/to-utc-timestamp 2016 3 2 11 11)
-                                             :msg "FOO-BAR"})
+                    (let [file-historizer (:file-historizer started)
+                          start-time (System/currentTimeMillis)]
                       (testing "should initialize writer-instance for incoming message"
-                        (Thread/sleep 200)
+                        (while
+                          (and
+                            (empty? @(:writers file-historizer))
+                            (not (too-much-time-passed-since start-time))))
+
                         (is (= [2016 3 2 11]
                                (get-in @(:writers file-historizer) [2016 3 2 11 :path])))
                         (is (= 1
