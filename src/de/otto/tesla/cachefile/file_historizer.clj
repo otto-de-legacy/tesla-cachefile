@@ -8,8 +8,7 @@
             [de.otto.tesla.stateful.app-status :as apps]
             [clojure.core.async :as async]
             [de.otto.tesla.cachefile.utils.metrics :as util-metrics]
-            [de.otto.tesla.cachefile.utils.reading-properties :as rpr]
-            [de.otto.status :as s])
+            [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
   (:import (java.io IOException)))
 
 (defn writer-for-timestamp [{:keys [output-path writers zookeeper]} millis]
