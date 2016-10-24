@@ -72,7 +72,10 @@
 
 (defn- close-single-writer! [writer path]
   (log/info "Closing writer for path: " path)
-  (.close writer))
+  (try
+    (.close writer)
+    (catch IOException e
+      (log/warn e "Could not close writer for path " path))))
 
 (defn is-top-level-path? [path]
   (< (count path) 2))
