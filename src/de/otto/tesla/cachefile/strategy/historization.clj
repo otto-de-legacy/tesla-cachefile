@@ -34,7 +34,7 @@
 (defn- current-time []
   (System/currentTimeMillis))
 
-(defn- writer-too-old? [max-age {:keys [last-access] :as w}]
+(defn- writer-too-old? [max-age {last-access :last-access}]
   (let [writer-age (- (current-time) last-access)]
     (>= writer-age max-age)))
 
@@ -72,7 +72,7 @@
 
 (defn- close-single-writer! [writer path]
   (log/info "Closing writer for path: " path)
-  (doto writer (.flush) (.close)))
+  (.close writer))
 
 (defn is-top-level-path? [path]
   (< (count path) 2))

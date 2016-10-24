@@ -104,16 +104,13 @@
 
 (defn CloseableMock [atm mockname]
   (proxy [Closeable Flushable] []
-    (flush []
-      (swap! atm update :flushed conj mockname))
     (close []
       (swap! atm update :closed conj mockname))))
 
 (def close-writers! #'hist/close-writers!)
 (deftest closing-all-writers
   (testing "should remove all writers"
-    (let [closed-writers (atom {:closed  []
-                                :flushed []})
+    (let [closed-writers (atom {:closed  []})
           the-search-map (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                                 :file-path   "some/path"
                                                 :path        [2015 10 1 2]
@@ -132,16 +129,14 @@
       (close-writers! the-search-map)
       (is (= {}
              @the-search-map))
-      (is (= {:closed  ["WRITER-A" "WRITER-B" "WRITER-C"]
-              :flushed ["WRITER-A" "WRITER-B" "WRITER-C"]}
+      (is (= {:closed  ["WRITER-A" "WRITER-B" "WRITER-C"]}
              @closed-writers)))))
 
 (def writer-too-old? #'hist/writer-too-old?)
 (deftest closing-all-unused-writers
   (testing "should close all writers which have not been used for some time"
     (with-redefs [hist/current-time (constantly 250)]
-      (let [closed-writers (atom {:closed  []
-                                  :flushed []})
+      (let [closed-writers (atom {:closed  []})
             writer-c (CloseableMock closed-writers "WRITER-C")
             the-search-map (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                                   :file-path   "some/path"
@@ -166,8 +161,7 @@
                                   :write-count 3
                                   :last-access 200}}}}}
                @the-search-map))
-        (is (= {:closed  ["WRITER-A" "WRITER-B"]
-                :flushed ["WRITER-A" "WRITER-B"]}
+        (is (= {:closed  ["WRITER-A" "WRITER-B"]}
                @closed-writers))))))
 
 
