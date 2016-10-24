@@ -18,11 +18,11 @@
         :app-status {} :zookeeper {}
         :file-historizer (c/using (fh/new-file-historizer "test-historizer" in-channel) [:config :app-status :zookeeper]))))
 
-(def three-seconds 3000)
+(def thirty-seconds 30000)
 
 (defn too-much-time-passed-since [start-time]
   (let [time-taken (- (System/currentTimeMillis) start-time)]
-    (> time-taken three-seconds)))
+    (> time-taken thirty-seconds)))
 
 (deftest integration
   (let [in-channel (async/chan 1)]
@@ -36,7 +36,9 @@
                           (while
                             (and
                               (empty? @(:writers file-historizer))
-                              (not (too-much-time-passed-since start-time))))
+                              (not (too-much-time-passed-since start-time)))
+                            (Thread/sleep 100))
+                          (println "Done waiting for result after " (- (System/currentTimeMillis) start-time) " millis. nr-results: " (count @(:writers file-historizer)))
                           (is (= [2016 3 2 11]
                                  (get-in @(:writers file-historizer) [2016 3 2 11 :path])))
                           (is (= 1
