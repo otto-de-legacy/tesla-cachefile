@@ -24,12 +24,12 @@
 
 (deftest integration
   (let [in-channel (async/chan 1)]
-    (async/>!! in-channel {:ts  (u/to-utc-timestamp 2016 3 2 11 11)
-                           :msg "FOO-BAR"})
     (u/with-started [started (test-system {:test-historizer-toplevel-path "target/test-historizer"} in-channel)]
                     (let [file-historizer (:file-historizer started)
                           start-time (System/currentTimeMillis)]
                       (testing "should initialize writer-instance for incoming message"
+                        (async/>!! in-channel {:ts  (u/to-utc-timestamp 2016 3 2 11 11)
+                                               :msg "FOO-BAR"})
                         (while
                           (and
                             (empty? @(:writers file-historizer))
