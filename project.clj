@@ -1,4 +1,4 @@
-(defproject de.otto/tesla-cachefile "0.4.1-SNAPSHOT"
+(defproject de.otto/tesla-cachefile "0.4.1"
   :description "Addon to https://github.com/otto-de/tesla-microservice to use a cachefile locally or on hdfs."
   :url "https://github.com/otto-de/tesla-cachefile"
   :license {:name "Apache License 2.0"
