@@ -8,7 +8,8 @@
             [de.otto.tesla.stateful.app-status :as apps]
             [clojure.core.async :as async]
             [de.otto.tesla.cachefile.utils.metrics :as util-metrics]
-            [de.otto.tesla.cachefile.utils.reading-properties :as rpr])
+            [de.otto.tesla.cachefile.utils.reading-properties :as rpr]
+            [de.otto.tesla.stateful.scheduler :as scheduler])
   (:import (java.io IOException)))
 
 (defn writer-for-timestamp [{:keys [output-path writers zookeeper]} millis]
@@ -29,24 +30,20 @@
                           :exception e})))
   msg)
 
-(defrecord FileHistorizer [app-status config which-historizer zookeeper in-channel transform-or-nil-fn]
+(defrecord FileHistorizer [app-status config scheduler which-historizer zookeeper in-channel transform-or-nil-fn]
   c/Lifecycle
   (start [self]
     (log/info "-> starting FileHistorizer " which-historizer)
     (let [output-path (rpr/toplevel-path config which-historizer)
-          pool (at/mk-pool)
           max-age (rpr/max-age config which-historizer)
           close-interval (rpr/close-interval config which-historizer)
           dev-null (async/chan (async/dropping-buffer 1))
           writers (atom {})
           new-self (assoc self
-                     :pool pool
                      :output-path output-path
                      :last-error (atom nil)
-                     :writers writers
-                     :scheduler (at/every close-interval
-                                          #(hist/close-old-writers! writers max-age)
-                                          pool))]
+                     :writers writers)]
+      (at/every close-interval #(hist/close-old-writers! writers max-age) (scheduler/pool scheduler) :desc which-historizer)
       (apps/register-status-fun app-status (partial hist/historization-status-fn new-self))
       (async/pipeline 1 dev-null (comp
                                    (keep transform-or-nil-fn)
@@ -55,11 +52,9 @@
                                                  write-to-hdfs new-self))) in-channel)
       new-self))
 
-  (stop [{:keys [writers schedule pool] :as self}]
+  (stop [{:keys [writers] :as self}]
     (log/info "<- stopping FileHistorizer")
     (hist/close-writers! writers)
-    (when schedule (at/kill schedule))
-    (at/stop-and-reset-pool! pool)
     self))
 
 (defn new-file-historizer

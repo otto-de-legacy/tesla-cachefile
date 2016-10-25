@@ -18,7 +18,7 @@
   :target-path "target/%s"
   :lein-release {:deploy-via :clojars}
   :test-paths ["test" "test-resources"]
-  :profiles {:dev     {:dependencies [[de.otto/tesla-microservice "0.1.32"]
+  :profiles {:dev     {:dependencies [[de.otto/tesla-microservice "0.5.0"]
                                       [org.slf4j/slf4j-api "1.7.16"]
                                       [ch.qos.logback/logback-core "1.1.5"]
                                       [ch.qos.logback/logback-classic "1.1.5"]]

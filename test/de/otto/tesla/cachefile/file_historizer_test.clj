@@ -7,35 +7,32 @@
     [com.stuartsierra.component :as c]
     [clojure.core.async :as async]
     [de.otto.tesla.stateful.app-status :as apps]
-    [com.stuartsierra.component :as comp]
-    [de.otto.tesla.cachefile.strategy.historization :as hist])
+    [de.otto.tesla.cachefile.strategy.historization :as hist]
+    [de.otto.tesla.stateful.scheduler :as scheduler]
+    [overtone.at-at :as at]
+    [de.otto.tesla.system :as system])
   (:import (java.io IOException BufferedWriter Writer)
            (org.joda.time DateTimeZone)))
 
 (defn test-system [runtime-conf in-channel]
-  (-> (comp/system-map
-        :config {:config runtime-conf}
-        :app-status {} :zookeeper {}
-        :file-historizer (c/using (fh/new-file-historizer "test-historizer" in-channel) [:config :app-status :zookeeper]))))
+  (-> (-> (system/base-system runtime-conf)
+          (assoc
+            :zookeeper {}
+            :file-historizer (c/using (fh/new-file-historizer "test-historizer" in-channel) [:config :app-status :zookeeper :scheduler])))))
 
 (def mock-writer (proxy [BufferedWriter] [(proxy [Writer] [])]
                    (write [_]) (newLine []) (flush []) (close [])))
 
 (deftest integration
   (let [in-channel (async/chan 1)]
-    (with-redefs [apps/register-status-fun (constantly nil)
-                  hist/time-zone (constantly DateTimeZone/UTC)
+    (with-redefs [hist/time-zone (constantly DateTimeZone/UTC)
                   hist/new-print-writer (constantly mock-writer)]
       (u/with-started [started (test-system {:test-historizer-toplevel-path "not used because of mock"} in-channel)]
-                      (let [file-historizer (:file-historizer started)
-                            start-time (System/currentTimeMillis)]
+                      (let [file-historizer (:file-historizer started)]
                         (testing "should initialize writer-instance for incoming message"
                           (async/>!! in-channel {:ts  (u/to-timestamp DateTimeZone/UTC 2016 3 2 11 11)
                                                  :msg "FOO-BAR"})
                           (Thread/sleep 200)
-                          (println "Done waiting for result after " (- (System/currentTimeMillis) start-time)
-                                   " millis. nr-results: " (count @(:writers file-historizer))
-                                   "  writers: " @(:writers file-historizer))
                           (is (= [2016 3 2 11]
                                  (get-in @(:writers file-historizer) [2016 3 2 11 :path])))
                           (is (= 1
@@ -44,6 +41,8 @@
 (deftest handling-errors-on-write
   (testing "should catch exceptions when writing"
     (with-redefs [apps/register-status-fun (constantly nil)
+                  scheduler/pool (constantly nil)
+                  at/every (constantly nil)
                   zknn/with-zk-namenode (fn [_ _] (throw (IOException. "some dummy exception")))]
       (let [test-fh (-> (fh/new-file-historizer "test-histo" (async/chan 0))
                         (c/start))
