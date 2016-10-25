@@ -43,7 +43,7 @@
                      :output-path output-path
                      :last-error (atom nil)
                      :writers writers)]
-      (at/every close-interval #(hist/close-old-writers! writers max-age) (scheduler/pool scheduler) :desc which-historizer)
+      (at/every close-interval #(hist/close-old-writers! writers max-age) (scheduler/pool scheduler) :desc (str "close old writers for " which-historizer))
       (apps/register-status-fun app-status (partial hist/historization-status-fn new-self))
       (async/pipeline 1 dev-null (comp
                                    (keep transform-or-nil-fn)
