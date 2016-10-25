@@ -1,6 +1,9 @@
 (ns de.otto.tesla.cachefile.strategy.historization
   (:require [hdfs.core :as hdfs]
             [de.otto.status :as s]
+            [clj-time.core :as t]
+            [clj-time.format :as f]
+            [clj-time.coerce :as c]
             [clojure.tools.logging :as log])
   (:import (java.io BufferedWriter OutputStreamWriter IOException)
            (org.joda.time DateTimeZone DateTime)
@@ -119,9 +122,17 @@
       (get-in @writers (time->path the-time))
       (create-new-writer output-path the-time))))
 
+(def default-time-formatter (f/formatter "YYYY-MM-dd HH:mm:ss Z" (t/default-time-zone)))
+
+(defn- with-readable-last-access [{:keys [last-access] :as w}]
+  (let [date-time (c/from-long last-access)
+        formated-date (f/unparse default-time-formatter date-time)]
+    (assoc w :last-access formated-date)))
+
 (defn- without-writer-object [c]
   (if (writer-entry? c)
-    (dissoc c :writer :path)
+    (-> (dissoc c :writer :path)
+        (with-readable-last-access))
     c))
 
 (defn historization-status-fn [{:keys [last-error writers which-historizer]}]
