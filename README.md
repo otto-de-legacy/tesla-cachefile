@@ -15,6 +15,9 @@ Add this to your project's dependencies:
 
 ## Changelog
 
+Version `0.4.0` changes:
+    * require tesla-microservice `0.5.0` which has a scheduler in the base-system.
+
 Version `0.3.3` changes:
    * bugfix: history files were compressed twice
 
