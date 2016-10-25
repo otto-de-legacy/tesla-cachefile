@@ -8,11 +8,9 @@
     [clojure.core.async :as async]
     [de.otto.tesla.stateful.app-status :as apps]
     [com.stuartsierra.component :as comp]
-    [de.otto.tesla.cachefile.strategy.historization :as hist]
-    [metrics.counters :as counters]
-    [metrics.meters :as meters]
-    [metrics.timers :as timers])
-  (:import (java.io IOException BufferedWriter Writer)))
+    [de.otto.tesla.cachefile.strategy.historization :as hist])
+  (:import (java.io IOException BufferedWriter Writer)
+           (org.joda.time DateTimeZone)))
 
 (defn test-system [runtime-conf in-channel]
   (-> (comp/system-map
@@ -23,35 +21,21 @@
 (def mock-writer (proxy [BufferedWriter] [(proxy [Writer] [])]
                    (write [_]) (newLine []) (flush []) (close [])))
 
-(def thirty-seconds 30000)
-
-(defn too-much-time-passed-since [start-time]
-  (let [time-taken (- (System/currentTimeMillis) start-time)]
-    (> time-taken thirty-seconds)))
-
 (deftest integration
   (let [in-channel (async/chan 1)]
     (with-redefs [apps/register-status-fun (constantly nil)
-                  counters/inc! (constantly nil)
-                  meters/mark! (constantly nil)
-                  timers/start (constantly nil)
-                  timers/stop (constantly nil)
+                  hist/time-zone (constantly DateTimeZone/UTC)
                   hist/new-print-writer (constantly mock-writer)]
       (u/with-started [started (test-system {:test-historizer-toplevel-path "not used because of mock"} in-channel)]
                       (let [file-historizer (:file-historizer started)
                             start-time (System/currentTimeMillis)]
                         (testing "should initialize writer-instance for incoming message"
-                          (async/>!! in-channel {:ts  (u/to-utc-timestamp 2016 3 2 11 11)
+                          (async/>!! in-channel {:ts  (u/to-timestamp DateTimeZone/UTC 2016 3 2 11 11)
                                                  :msg "FOO-BAR"})
-                          (while
-                            (and
-                              (empty? @(:writers file-historizer))
-                              (not (too-much-time-passed-since start-time)))
-                            (Thread/sleep 100))
+                          (Thread/sleep 200)
                           (println "Done waiting for result after " (- (System/currentTimeMillis) start-time)
                                    " millis. nr-results: " (count @(:writers file-historizer))
                                    "  writers: " @(:writers file-historizer))
-
                           (is (= [2016 3 2 11]
                                  (get-in @(:writers file-historizer) [2016 3 2 11 :path])))
                           (is (= 1

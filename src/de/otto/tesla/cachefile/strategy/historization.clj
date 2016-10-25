@@ -11,9 +11,12 @@
     (if-let [writer-values (vals (select-keys c #{:file-path :writer :last-access}))]
       (every? #(not (nil? %)) writer-values))))
 
+(defn- ^DateTimeZone time-zone []
+  (DateTimeZone/getDefault))
+
 (defn- ts->time-map [millis]
   (when millis
-    (let [date-time (DateTime. millis (DateTimeZone/getDefault))]
+    (let [date-time (DateTime. millis (time-zone))]
       {:month (.getMonthOfYear date-time)
        :day   (.getDayOfMonth date-time)
        :year  (.getYear date-time)

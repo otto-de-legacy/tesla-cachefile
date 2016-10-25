@@ -1,12 +1,8 @@
 (ns de.otto.tesla.cachefile.utils.test-utils
   (:require [clojure.test :refer :all]
             [com.stuartsierra.component :as comp]
-            [de.otto.tesla.cachefile.cachefile-handler :as cfh]
-            [com.stuartsierra.component :as c]
             [clj-time.core :as t]
-            [clj-time.coerce :as coe]
-            [de.otto.tesla.zk.zk-observer :as zk]
-            [de.otto.tesla.system :as system]))
+            [clj-time.coerce :as coe]))
 
 (defmacro with-started
   "bindings => [name init ...]
@@ -31,11 +27,11 @@
              "not a vector or bindings-count is not even"))))
 
 
-(defn to-datetime [& args]
+(defn to-datetime [dtz & args]
   (t/from-time-zone
     (apply t/date-time args)
-    (t/time-zone-for-id "Europe/Berlin")))
+    dtz))
 
-(defn to-utc-timestamp [& args]
-  (-> (apply to-datetime args)
+(defn to-timestamp [dtz & args]
+  (-> (apply (partial to-datetime dtz) args)
       (coe/to-long)))
