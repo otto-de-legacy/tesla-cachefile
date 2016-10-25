@@ -1,7 +1,7 @@
 (ns de.otto.tesla.cachefile.strategy.historization-test
   (:require [clojure.test :refer :all]
             [de.otto.tesla.cachefile.strategy.historization :as hist]
-            [clj-time.core :as t])
+            [clj-time.format :as f])
   (:import (java.io Flushable Closeable IOException)
            (org.joda.time DateTime DateTimeZone)))
 
@@ -176,7 +176,7 @@
         (is (= "some-writer" (:foo @writers)))))))
 
 (deftest the-status-fn
-  (with-redefs [t/default-time-zone DateTimeZone/UTC]
+  (with-redefs [hist/default-time-formatter (f/formatter "YYYY-MM-dd HH:mm:ss Z" DateTimeZone/UTC) ]
     (testing "should build status response"
       (let [closed-writers (atom {:closed  []
                                   :flushed []})
@@ -195,11 +195,11 @@
                             :status  :ok
                             :writers {2015 {10 {1 {2 {:file-path   "some/path"
                                                       :write-count 2
-                                                      :last-access "1970-01-01 01:00:00 +0100"}}}
+                                                      :last-access "1970-01-01 00:00:00 +0000"}}}
                                             11 {11 {10 nil
                                                     11 {:file-path   "some/path"
                                                         :write-count 3
-                                                        :last-access "1970-01-01 01:00:00 +0100"}}}}}}}
+                                                        :last-access "1970-01-01 00:00:00 +0000"}}}}}}}
                (hist/historization-status-fn {:writers          some-data
                                               :last-error       (atom nil)
                                               :which-historizer "some-name"})))))
@@ -222,11 +222,11 @@
                             :status  :warning
                             :writers {2015 {10 {1 {2 {:file-path   "some/path"
                                                       :write-count 2
-                                                      :last-access "1970-01-01 01:00:00 +0100"}}}
+                                                      :last-access "1970-01-01 00:00:00 +0000"}}}
                                             11 {11 {10 nil
                                                     11 {:file-path   "some/path"
                                                         :write-count 3
-                                                        :last-access "1970-01-01 01:00:00 +0100"}}}}}}}
+                                                        :last-access "1970-01-01 00:00:00 +0000"}}}}}}}
                (hist/historization-status-fn {:writers          some-data
                                               :last-error       (atom {:msg       "some-msg"
                                                                        :ts        123
