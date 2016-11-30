@@ -47,14 +47,19 @@
 (defn- unique-id []
   (str (UUID/randomUUID)))
 
-(defn- output-file-path [output-path {:keys [year month day hour]}]
-  (str output-path "/" year "/" month "/" day "/" hour "/" (unique-id) ".hist.gz"))
+(defn- output-file-path
+  ([output-path time-map]
+   (output-file-path output-path time-map false))
+  ([output-path {:keys [year month day hour]} zero-padded?]
+   (if zero-padded?
+     (str output-path "/" year "/" (format "%02d" month) "/" (format "%02d" day) "/" (format "%02d" hour) "/" (unique-id) ".hist.gz")
+     (str output-path "/" year "/" month "/" day "/" hour "/" (unique-id) ".hist.gz"))))
 
 (defn- new-print-writer ^BufferedWriter [file-path]
   (BufferedWriter. (OutputStreamWriter. (hdfs/output-stream file-path))))
 
-(defn- create-new-writer [output-path the-time]
-  (let [file-path (output-file-path output-path the-time)]
+(defn- create-new-writer [output-path the-time zero-padded?]
+  (let [file-path (output-file-path output-path the-time zero-padded?)]
     {:writer      (new-print-writer file-path)
      :path        (time->path the-time)
      :write-count 0
@@ -116,11 +121,11 @@
 (defn close-old-writers! [writers max-writer-age]
   (close-writers! writers (partial writer-too-old? max-writer-age)))
 
-(defn lookup-writer-or-create [output-path writers millis]
+(defn lookup-writer-or-create [output-path writers millis zero-padded?]
   (when-let [the-time (ts->time-map millis)]
     (or
       (get-in @writers (time->path the-time))
-      (create-new-writer output-path the-time))))
+      (create-new-writer output-path the-time zero-padded?))))
 
 (def default-time-formatter (f/formatter "YYYY-MM-dd HH:mm:ss Z" (t/default-time-zone)))
 

@@ -29,7 +29,14 @@
              (output-file-path "output/path" {:year  2015
                                               :month 1
                                               :day   17
-                                              :hour  10}))))))
+                                              :hour  10}))))
+    (testing "should create an output-path with a unique file-name"
+      (is (= "output/path/2015/01/07/02/a-unique-id.hist.gz"
+             (output-file-path "output/path" {:year  2015
+                                              :month 1
+                                              :day   7
+                                              :hour  2} true))))))
+
 (def unique-id #'hist/unique-id)
 (deftest creating-unique-ids
   (testing "should create a unique id"
@@ -50,7 +57,7 @@
                     :last-access 123}
             writers-map (atom {2015 {11 {17 {9 writer}}}})]
         (is (= writer
-               (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0))))))))
+               (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0)) false))))))
 
 
   (testing "should create a new writer and store it"
@@ -64,7 +71,7 @@
                              :write-count 0
                              :writer      "WRITER"}]
         (is (= expected-writer
-               (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0)))))))))
+               (lookup-writer-or-create! "some-path" writers-map (.getMillis (DateTime. 2015 11 17 9 0)) false)))))))
 
 
 (def find-all-writers #'hist/find-all-writers)

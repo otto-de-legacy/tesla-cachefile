@@ -12,9 +12,9 @@
             [de.otto.tesla.stateful.scheduler :as scheduler])
   (:import (java.io IOException)))
 
-(defn writer-for-timestamp [{:keys [output-path writers zookeeper]} millis]
+(defn writer-for-timestamp [{:keys [output-path writers zookeeper zero-padded?]} millis]
   (-> (zknn/with-zk-namenode zookeeper output-path)
-      (hist/lookup-writer-or-create writers millis)))
+      (hist/lookup-writer-or-create writers millis zero-padded?)))
 
 (defn write-to-hdfs [{:keys [writers which-historizer last-error] :as self} {:keys [ts msg]}]
   (try
@@ -30,7 +30,7 @@
                           :exception e})))
   msg)
 
-(defrecord FileHistorizer [app-status config scheduler which-historizer zookeeper in-channel transform-or-nil-fn]
+(defrecord FileHistorizer [app-status config scheduler which-historizer zookeeper in-channel transform-or-nil-fn zero-padded?]
   c/Lifecycle
   (start [self]
     (log/info "-> starting FileHistorizer " which-historizer)
@@ -41,6 +41,7 @@
           writers (atom {})
           new-self (assoc self
                      :output-path output-path
+                     :zero-padded? zero-padded?
                      :last-error (atom nil)
                      :writers writers)]
       (at/every close-interval #(hist/close-old-writers! writers max-age) (scheduler/pool scheduler) :desc (str "close old writers for " which-historizer))
@@ -59,10 +60,11 @@
 
 (defn new-file-historizer
   ([which-historizer in-channel]
-   (map->FileHistorizer {:which-historizer    which-historizer
-                         :in-channel          in-channel
-                         :transform-or-nil-fn identity}))
+   (new-file-historizer which-historizer in-channel identity false))
   ([which-historizer in-channel transform-or-nil-fn]
+   (new-file-historizer which-historizer in-channel transform-or-nil-fn false))
+  ([which-historizer in-channel transform-or-nil-fn zero-padded?]
    (map->FileHistorizer {:which-historizer    which-historizer
                          :in-channel          in-channel
-                         :transform-or-nil-fn transform-or-nil-fn})))
+                         :transform-or-nil-fn transform-or-nil-fn
+                         :zero-padded?        zero-padded?})))
