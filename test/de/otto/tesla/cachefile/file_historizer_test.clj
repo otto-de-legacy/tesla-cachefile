@@ -2,14 +2,10 @@
   (:require
     [clojure.test :refer :all]
     [de.otto.tesla.cachefile.file-historizer :as fh]
-    [de.otto.tesla.cachefile.utils.zk-namenode :as zknn]
     [de.otto.tesla.cachefile.utils.test-utils :as u]
     [com.stuartsierra.component :as c]
     [clojure.core.async :as async]
-    [de.otto.tesla.stateful.app-status :as apps]
     [de.otto.tesla.cachefile.strategy.historization :as hist]
-    [de.otto.tesla.stateful.scheduler :as scheduler]
-    [overtone.at-at :as at]
     [de.otto.tesla.system :as system])
   (:import (java.io IOException BufferedWriter Writer)
            (org.joda.time DateTimeZone)))
@@ -39,20 +35,19 @@
                                  (get-in @(:writers file-historizer) [2016 3 2 11 :write-count])))))))))
 
 (deftest handling-errors-on-write
-  (testing "should catch exceptions when writing"
-    (with-redefs [apps/register-status-fun (constantly nil)
-                  scheduler/pool (constantly nil)
-                  at/every (constantly nil)
-                  zknn/with-zk-namenode (fn [_ _] (throw (IOException. "some dummy exception")))]
-      (let [test-fh (-> (fh/new-file-historizer "test-histo" (async/chan 0))
-                        (c/start))
-            last-error (:last-error test-fh)]
-        (try
-          (is (= "dummy-msg"
-                 (fh/write-to-hdfs test-fh {:msg "dummy-msg"})))
-          (is (= "dummy-msg"
-                 (:msg @last-error)))
-          (is (= "some dummy exception"
-                 (.getMessage (:exception @last-error))))
-          (finally
-            (c/stop test-fh)))))))
+  (testing "If a write fails should close & dispose writer"
+    (let [time ["2017" "05" "30" "12"]
+          writer {:writer "writer" :path time}
+          writers (atom (assoc-in {} (:path writer) writer))
+          last-error (atom nil)
+          closed-writer (atom nil)]
+      (with-redefs [fh/writer-for-timestamp (constantly writer)
+                    hist/write-line! (fn [_ _] (throw (IOException. "write failed")))
+                    hist/close-single-writer! (fn [writer-to-close _] (reset! closed-writer writer-to-close))]
+
+        (fh/write-to-hdfs {:writers          writers
+                           :which-historizer "test-historizer"
+                           :last-error       last-error}
+                          {:msg "dummy-msg"})
+        (is (= "writer" @closed-writer))
+        (is (= nil (get-in @writers time)))))))

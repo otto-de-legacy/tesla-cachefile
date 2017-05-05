@@ -16,18 +16,24 @@
   (-> (zknn/with-zk-namenode zookeeper output-path)
       (hist/lookup-writer-or-create writers millis zero-padded?)))
 
+(defn dispose [writers {:keys [writer path]}]
+  (hist/close-single-writer! writer path)
+  (hist/remove-path! writers path))
+
 (defn write-to-hdfs [{:keys [writers which-historizer last-error] :as self} {:keys [ts msg]}]
-  (try
-    (-> (writer-for-timestamp self ts)
-        (hist/write-line! msg)
-        (hist/touch-writer)
-        (hist/store-writer writers))
-    (counters/inc! (counters/counter ["file-historizer" which-historizer "write-to-hdfs"]))
-    (catch IOException e
-      (log/error e "Error occured when writing message: " msg " with ts: " ts)
-      (reset! last-error {:msg       msg
-                          :ts        ts
-                          :exception e})))
+  (let [writer (writer-for-timestamp self ts)]
+    (try
+      (-> writer
+          (hist/write-line! msg)
+          (hist/touch-writer)
+          (hist/store-writer writers))
+      (counters/inc! (counters/counter ["file-historizer" which-historizer "write-to-hdfs"]))
+      (catch IOException e
+        (log/error e "Error occured when writing message: " msg " with ts: " ts)
+        (reset! last-error {:msg       msg
+                            :ts        ts
+                            :exception e})
+        (dispose writers writer))))
   msg)
 
 (defrecord FileHistorizer [app-status config scheduler which-historizer zookeeper in-channel transform-or-nil-fn zero-padded?]

@@ -81,7 +81,7 @@
   (swap! writers assoc-in path writer)
   writer)
 
-(defn- close-single-writer! [writer path]
+(defn close-single-writer! [writer path]
   (log/info "Closing writer for path: " path)
   (try
     (.close writer)
