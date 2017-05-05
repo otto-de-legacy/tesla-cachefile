@@ -13,13 +13,13 @@
                  [org.slf4j/slf4j-api "1.7.21"]
                  [org.clojure/core.async "0.2.395"]
                  [org.slf4j/jcl-over-slf4j "1.7.21"]
-                 [org.apache.hadoop/hadoop-client "2.6.0"]
+                 [org.apache.hadoop/hadoop-common "2.6.0"]
+                 [org.apache.hadoop/hadoop-hdfs "2.6.0"]
                  [hdfs-clj "0.1.15"]]
   :target-path "target/%s"
   :lein-release {:deploy-via :clojars}
   :test-paths ["test" "test-resources"]
   :profiles {:dev     {:dependencies [[de.otto/tesla-microservice "0.6.0"]
-                                      [org.slf4j/slf4j-api "1.7.21"]
                                       [ch.qos.logback/logback-core "1.1.8"]
                                       [ch.qos.logback/logback-classic "1.1.8"]]
 
