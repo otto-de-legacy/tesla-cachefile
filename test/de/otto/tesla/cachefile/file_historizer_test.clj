@@ -6,7 +6,8 @@
     [com.stuartsierra.component :as c]
     [clojure.core.async :as async]
     [de.otto.tesla.cachefile.strategy.historization :as hist]
-    [de.otto.tesla.system :as system])
+    [de.otto.tesla.system :as system]
+    [clojure.tools.logging :as log])
   (:import (java.io IOException BufferedWriter Writer)
            (org.joda.time DateTimeZone)))
 
@@ -59,14 +60,16 @@
           writer {:writer "writer" :path time}
           writers (atom (assoc-in {} (:path writer) writer))
           last-error (atom nil)
-          closed-writer (atom nil)]
+          closed-writer (atom nil)
+          logs (atom [])]
       (with-redefs [fh/writer-for-timestamp (constantly writer)
                     hist/write-line! (fn [_ _] (throw (IOException. "write failed")))
-                    hist/close-single-writer! (fn [writer-to-close _] (reset! closed-writer writer-to-close))]
-
+                    hist/close-single-writer! (fn [writer-to-close _] (reset! closed-writer writer-to-close))
+                    log/log* (fn [_ _ _ msg] (swap! logs conj msg) nil)]
         (fh/write-to-hdfs {:writers          writers
                            :which-historizer "test-historizer"
                            :last-error       last-error}
                           {:msg "dummy-msg"})
         (is (= "writer" @closed-writer))
-        (is (= nil (get-in @writers time)))))))
+        (is (= nil (get-in @writers time)))
+        (is (= ["Error occured when writing message:  dummy-msg  with ts:  nil"] @logs))))))

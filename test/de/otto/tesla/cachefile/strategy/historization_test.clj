@@ -1,7 +1,8 @@
 (ns de.otto.tesla.cachefile.strategy.historization-test
   (:require [clojure.test :refer :all]
             [de.otto.tesla.cachefile.strategy.historization :as hist]
-            [clj-time.format :as f])
+            [clj-time.format :as f]
+            [clojure.tools.logging :as log])
   (:import (java.io Flushable Closeable IOException)
            (org.joda.time DateTime DateTimeZone)))
 
@@ -118,7 +119,7 @@
 (def close-writers! #'hist/close-writers!)
 (deftest closing-all-writers
   (testing "should remove all writers"
-    (let [closed-writers (atom {:closed  []})
+    (let [closed-writers (atom {:closed []})
           the-search-map (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                                 :file-path   "some/path"
                                                 :path        [2015 10 1 2]
@@ -137,14 +138,14 @@
       (close-writers! the-search-map)
       (is (= {}
              @the-search-map))
-      (is (= {:closed  ["WRITER-A" "WRITER-B" "WRITER-C"]}
+      (is (= {:closed ["WRITER-A" "WRITER-B" "WRITER-C"]}
              @closed-writers)))))
 
 (def writer-too-old? #'hist/writer-too-old?)
 (deftest closing-all-unused-writers
   (testing "should close all writers which have not been used for some time"
     (with-redefs [hist/current-time (constantly 250)]
-      (let [closed-writers (atom {:closed  []})
+      (let [closed-writers (atom {:closed []})
             writer-c (CloseableMock closed-writers "WRITER-C")
             the-search-map (atom {2015 {10 {1 {2 {:writer      (CloseableMock closed-writers "WRITER-A")
                                                   :file-path   "some/path"
@@ -169,21 +170,24 @@
                                   :write-count 3
                                   :last-access 200}}}}}
                @the-search-map))
-        (is (= {:closed  ["WRITER-A" "WRITER-B"]}
+        (is (= {:closed ["WRITER-A" "WRITER-B"]}
                @closed-writers))))))
 
 
 
 (deftest exceptions-on-closing
   (testing "should catch exception and not set writer-instance to nil if an exception occures"
-    (with-redefs [hist/close-single-writer! (fn [_ _] (throw (IOException. "a dummy exception")))
-                  hist/find-all-writers (constantly [{:path [:foo]}])]
-      (let [writers (atom {:foo "some-writer"})]
+    (let [writers (atom {:foo "some-writer"})
+          logs (atom [])]
+      (with-redefs [hist/close-single-writer! (fn [_ _] (throw (IOException. "a dummy exception")))
+                    hist/find-all-writers (constantly [{:path [:foo]}])
+                    log/log* (fn [_ _ _ message] (swap! logs conj message) nil)]
         (is (= nil (hist/close-writers! writers)))
-        (is (= "some-writer" (:foo @writers)))))))
+        (is (= "some-writer" (:foo @writers)))
+        (is (= ["Error occured when closing and flushing writer in:  [:foo]"] @logs))))))
 
 (deftest the-status-fn
-  (with-redefs [hist/default-time-formatter (f/formatter "YYYY-MM-dd HH:mm:ss Z" DateTimeZone/UTC) ]
+  (with-redefs [hist/default-time-formatter (f/formatter "YYYY-MM-dd HH:mm:ss Z" DateTimeZone/UTC)]
     (testing "should build status response"
       (let [closed-writers (atom {:closed  []
                                   :flushed []})
