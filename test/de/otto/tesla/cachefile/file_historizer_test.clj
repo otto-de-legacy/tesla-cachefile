@@ -19,6 +19,15 @@
 (def mock-writer (proxy [BufferedWriter] [(proxy [Writer] [])]
                    (write [_]) (newLine []) (flush []) (close [])))
 
+(deftest channel-closed?-test
+  (testing "should return true if channel is closed before timeout"
+    (is (fh/pipeline-finished!? (async/timeout 10) 20)))
+  (testing "should return false if channel is open after timeout"
+    (is (not (fh/pipeline-finished!? (async/timeout 20) 10)))))
+
+(defn avoid-flakyness-in-error-case-by-waiting []
+  (Thread/sleep 100))
+
 (deftest integration
   (let [in-channel (async/chan 1)]
     (with-redefs [hist/time-zone (constantly DateTimeZone/UTC)
@@ -32,7 +41,17 @@
                           (is (= [2016 3 2 11]
                                  (get-in @(:writers file-historizer) [2016 3 2 11 :path])))
                           (is (= 1
-                                 (get-in @(:writers file-historizer) [2016 3 2 11 :write-count])))))))))
+                                 (get-in @(:writers file-historizer) [2016 3 2 11 :write-count]))))
+                        (testing "closing the in channel means closing the writers"
+                          (is (not-empty @(:writers file-historizer)))
+                          (let [stop-future (future (c/stop file-historizer))]
+                            (async/>!! in-channel {:ts  (u/to-timestamp DateTimeZone/UTC 2016 3 2 11 11)
+                                                   :msg "FOO-BAR"})
+                            (avoid-flakyness-in-error-case-by-waiting)
+                            (async/close! in-channel)
+                            @stop-future
+                            (is (= {} @(:writers file-historizer))))
+                          ))))))
 
 (deftest handling-errors-on-write
   (testing "If a write fails should close & dispose writer"

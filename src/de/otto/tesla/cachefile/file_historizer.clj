@@ -36,6 +36,10 @@
         (dispose writers writer))))
   msg)
 
+(defn pipeline-finished!? [pipepline timeout]
+  (async/alt!! (async/timeout timeout) false
+               pipepline true))
+
 (defrecord FileHistorizer [app-status config scheduler which-historizer zookeeper in-channel transform-or-nil-fn zero-padded?]
   c/Lifecycle
   (start [self]
@@ -46,21 +50,26 @@
           dev-null (async/chan (async/dropping-buffer 1))
           writers (atom {})
           new-self (assoc self
+                     :out-chan dev-null
                      :output-path output-path
                      :zero-padded? zero-padded?
                      :last-error (atom nil)
                      :writers writers)]
       (at/every close-interval #(hist/close-old-writers! writers max-age) (scheduler/pool scheduler) :desc (str "close old writers for " which-historizer))
       (apps/register-status-fun app-status (partial hist/historization-status-fn new-self))
-      (async/pipeline 1 dev-null (comp
-                                   (keep transform-or-nil-fn)
-                                   (map (partial util-metrics/metered-execution
-                                                 (str which-historizer "write-to-hdfs")
-                                                 write-to-hdfs new-self))) in-channel)
-      new-self))
 
-  (stop [{:keys [writers] :as self}]
+      (assoc new-self :pipeline-chan (async/pipeline 1 dev-null (comp
+                                                                  (keep transform-or-nil-fn)
+                                                                  (map (partial util-metrics/metered-execution
+                                                                                (str which-historizer "write-to-hdfs")
+                                                                                write-to-hdfs new-self))) in-channel))))
+
+  (stop [{:keys [writers pipeline-chan] :as self}]
     (log/info "<- stopping FileHistorizer")
+    (log/info "Waiting for input-channel to close.")
+    (if (pipeline-finished!? pipeline-chan 200)
+      (log/info "Pipeline finished -> now closing writers.")
+      (log/warn "Pipeline did not finish yet. Going to close writers anyway."))
     (hist/close-writers! writers)
     self))
 
