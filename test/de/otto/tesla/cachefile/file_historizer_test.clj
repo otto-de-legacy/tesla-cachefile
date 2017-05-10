@@ -56,12 +56,12 @@
 
 (deftest handling-errors-on-write
   (testing "If a write fails should close & dispose writer"
-    (let [time ["2017" "05" "30" "12"]
-          writer {:writer "writer" :path time}
-          writers (atom (assoc-in {} (:path writer) writer))
-          last-error (atom nil)
+    (let [time          ["2017" "05" "30" "12"]
+          writer        {:writer "writer" :path time}
+          writers       (atom (assoc-in {} (:path writer) writer))
+          last-error    (atom nil)
           closed-writer (atom nil)
-          logs (atom [])]
+          logs          (atom [])]
       (with-redefs [fh/writer-for-timestamp (constantly writer)
                     hist/write-line! (fn [_ _] (throw (IOException. "write failed")))
                     hist/close-single-writer! (fn [writer-to-close _] (reset! closed-writer writer-to-close))
