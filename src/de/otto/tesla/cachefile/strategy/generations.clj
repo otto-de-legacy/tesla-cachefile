@@ -76,7 +76,7 @@
 
 (defn- delete [path]
   (log/info "deleting path:" path)
-  (hdfs/delete path))
+  (hdfs/delete path true))
 
 (defn- all-generation-paths-sorted [toplevel-path]
   (let [all-gens (all-generations (parentpath-of-generation-placeholder toplevel-path))]
