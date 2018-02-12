@@ -17,9 +17,10 @@
                  [org.apache.hadoop/hadoop-common "2.9.0"
                   :exclusions [commons-logging/commons-logging log4j/log4j org.slf4j/slf4j-log4j12 org.mortbay.jetty/jetty org.mortbay.jetty/jetty-util org.mortbay.jetty/jetty-sslengine]]
                  [org.apache.hadoop/hadoop-hdfs "2.9.0"
-                  :exclusions [commons-logging/commons-logging log4j/log4j org.slf4j/slf4j-log4j12  org.mortbay.jetty/jetty org.mortbay.jetty/jetty-util org.mortbay.jetty/jetty-sslengine]]
+                  :exclusions [commons-logging/commons-logging log4j/log4j org.slf4j/slf4j-log4j12 org.mortbay.jetty/jetty org.mortbay.jetty/jetty-util org.mortbay.jetty/jetty-sslengine]]
                  [hdfs-clj "0.1.16"]
                  ;override stuff because of security vulnerabilities
+                 [com.fasterxml.jackson.core/jackson-databind "2.9.4"]
                  [commons-beanutils/commons-beanutils "1.9.3"]
                  [com.nimbusds/nimbus-jose-jwt "4.39.2"]
                  [com.squareup.okhttp/okhttp "2.7.5"]
